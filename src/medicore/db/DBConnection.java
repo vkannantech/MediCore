@@ -6,7 +6,18 @@ import java.sql.SQLException;
 
 public class DBConnection {
 
-    private static final String URL      = "jdbc:mysql://localhost:3306/medicore";
+    private static final String URL      =
+            "jdbc:mysql://localhost:3306/medicore" +
+            "?cachePrepStmts=true" +
+            "&prepStmtCacheSize=250" +
+            "&prepStmtCacheSqlLimit=2048" +
+            "&useServerPrepStmts=true" +
+            "&useLocalSessionState=true" +
+            "&rewriteBatchedStatements=true" +
+            "&cacheResultSetMetadata=true" +
+            "&cacheServerConfiguration=true" +
+            "&elideSetAutoCommits=true" +
+            "&maintainTimeStats=false";
     private static final String USER     = "root";
     private static final String PASSWORD = "admin"; // ← change to your MySQL password
 

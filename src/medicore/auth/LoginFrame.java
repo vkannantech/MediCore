@@ -1,6 +1,8 @@
 package medicore.auth;
 
 import medicore.dashboard.DashboardFrame;
+import medicore.dashboard.UserDashboardFrame;
+import medicore.ui.UIUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -27,8 +29,9 @@ public class LoginFrame extends JFrame {
         setTitle("MediCore — Login");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(480, 560);
+        setMinimumSize(new Dimension(420, 520));
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
         buildUI();
     }
 
@@ -129,7 +132,7 @@ public class LoginFrame extends JFrame {
         // Allow Enter key to trigger login
         getRootPane().setDefaultButton(btnLogin);
 
-        setContentPane(mainPanel);
+        setContentPane(UIUtils.wrapScrollable(mainPanel, BG_DARK));
     }
 
     private void doLogin() {
@@ -139,8 +142,16 @@ public class LoginFrame extends JFrame {
             showError("Please enter both username and password.");
             return;
         }
-        if (authDAO.login(user, pass)) {
-            new DashboardFrame(user).setVisible(true);
+        AuthUser authUser = authDAO.authenticate(user, pass);
+        if (authUser != null) {
+            if (authUser.isAdmin()) {
+                new DashboardFrame(authUser.getUsername() + " (" + authUser.getRole() + ")").setVisible(true);
+            } else if (authUser.getPatientId() != null) {
+                new UserDashboardFrame(authUser.getUsername(), authUser.getPatientId()).setVisible(true);
+            } else {
+                showError("This user is not linked to a patient profile yet. Please contact admin.");
+                return;
+            }
             dispose();
         } else {
             showError("Invalid username or password!");

@@ -91,6 +91,15 @@ CREATE INDEX idx_doctor_specialization ON doctor(specialization);
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '1234', 'ADMIN');
 INSERT IGNORE INTO users (username, password, role) VALUES ('staff', 'staff123', 'USER');
 
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'USER';
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS patient_id INT UNIQUE NULL;
+
+UPDATE users SET role = 'ADMIN' WHERE username = 'admin';
+UPDATE users SET role = 'USER' WHERE username <> 'admin' AND (role IS NULL OR role = '');
+
 INSERT INTO doctor (name, specialization, availability) VALUES
 ('Dr. Ravi Kumar',  'General',        'Morning'),
 ('Dr. Priya Nair',  'Cardiologist',   'Evening'),

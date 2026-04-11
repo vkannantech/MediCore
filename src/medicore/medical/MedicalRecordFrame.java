@@ -1,9 +1,15 @@
 package medicore.medical;
 
+import medicore.ui.AsyncUI;
+import medicore.ui.UIUtils;
+import medicore.util.ExportUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 public class MedicalRecordFrame extends JFrame {
@@ -22,12 +28,15 @@ public class MedicalRecordFrame extends JFrame {
     private JTextField txtPatientId, txtSearchId;
     private JTextArea  txtDiagnosis, txtPrescription;
     private DefaultTableModel tableModel;
+    private JTable table;
 
     public MedicalRecordFrame() {
         setTitle("MediCore — Medical Records");
-        setSize(900, 640);
+        setSize(1040, 740);
+        setMinimumSize(new Dimension(900, 660));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(true);
         buildUI();
         refreshTable(dao.getAllRecords());
     }
@@ -38,10 +47,12 @@ public class MedicalRecordFrame extends JFrame {
         root.add(makeHeader("💊  Medical Records"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabs.setBackground(CARD); tabs.setForeground(TEXT);
         tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("➕  Add Record", buildAddPanel());
+        tabs.addTab("➕  Add Record", UIUtils.wrapScrollable(buildAddPanel(), BG));
         tabs.addTab("📋  View Records", buildViewPanel());
+        tabs.addChangeListener(e -> reloadCurrentFilter());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
@@ -79,19 +90,27 @@ public class MedicalRecordFrame extends JFrame {
         txtSearchId = input(); txtSearchId.setToolTipText("Enter Patient ID to filter records");
         JButton btnFilter = smallBtn("Filter by Patient", ACCENT);
         JButton btnAll    = smallBtn("Show All", new Color(99, 102, 241));
+        JButton btnPrint  = smallBtn("Print", new Color(16, 185, 129));
+        JButton btnPdf    = smallBtn("Export PDF", new Color(245, 158, 11));
         btnFilter.addActionListener(e -> {
             try { refreshTable(dao.getRecordsByPatient(Integer.parseInt(txtSearchId.getText().trim()))); }
             catch (NumberFormatException ex) { warn("Enter a valid Patient ID."); }
         });
         btnAll.addActionListener(e -> { txtSearchId.setText(""); refreshTable(dao.getAllRecords()); });
+        btnPrint.addActionListener(e -> ExportUtils.printTable(table, "Medical Records", this));
+        btnPdf.addActionListener(e -> exportRecordsPdf());
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        btns.setOpaque(false); btns.add(btnFilter); btns.add(btnAll);
+        JButton btnEdit = smallBtn("Edit Record", new Color(245, 158, 11));
+        JButton btnDelete = smallBtn("Delete Record", new Color(239, 68, 68));
+        btnEdit.addActionListener(e -> editSelectedRecord());
+        btnDelete.addActionListener(e -> deleteSelectedRecord());
+        btns.setOpaque(false); btns.add(btnFilter); btns.add(btnAll); btns.add(btnPrint); btns.add(btnPdf); btns.add(btnEdit); btns.add(btnDelete);
         bar.add(txtSearchId, BorderLayout.CENTER); bar.add(btns, BorderLayout.EAST);
         p.add(bar, BorderLayout.NORTH);
 
         String[] cols = {"Record ID", "Patient Name", "Diagnosis", "Prescription"};
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         styleTable(table);
         p.add(new JScrollPane(table), BorderLayout.CENTER);
         return p;
@@ -114,6 +133,74 @@ public class MedicalRecordFrame extends JFrame {
         if (tableModel == null) return;
         tableModel.setRowCount(0);
         for (String[] r : rows) tableModel.addRow(r);
+    }
+
+    private void editSelectedRecord() {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select a medical record first."); return; }
+        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        JTextArea diagnosisArea = new JTextArea(String.valueOf(tableModel.getValueAt(row, 2)), 4, 20);
+        JTextArea prescriptionArea = new JTextArea(String.valueOf(tableModel.getValueAt(row, 3)), 4, 20);
+        styleTextArea(diagnosisArea);
+        styleTextArea(prescriptionArea);
+        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 8));
+        panel.add(label("Diagnosis"));
+        panel.add(new JScrollPane(diagnosisArea));
+        panel.add(label("Prescription"));
+        panel.add(new JScrollPane(prescriptionArea));
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Edit Record #" + recordId,
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+        if (dao.updateRecord(recordId, diagnosisArea.getText().trim(), prescriptionArea.getText().trim())) {
+            info("Medical record updated.");
+            reloadCurrentFilter();
+        } else {
+            warn("Failed to update medical record.");
+        }
+    }
+
+    private void deleteSelectedRecord() {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select a medical record first."); return; }
+        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int confirm = JOptionPane.showConfirmDialog(this, "Delete record #" + recordId + "?",
+                "Delete Medical Record", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (dao.deleteRecord(recordId)) {
+                info("Medical record deleted.");
+                reloadCurrentFilter();
+            } else {
+                warn("Failed to delete record.");
+            }
+        }
+    }
+
+    private void reloadCurrentFilter() {
+        String filter = txtSearchId == null ? "" : txtSearchId.getText().trim();
+        if (filter.isEmpty()) {
+            AsyncUI.load(this, dao::getAllRecords, this::refreshTable);
+            return;
+        }
+        try {
+            int patientId = Integer.parseInt(filter);
+            AsyncUI.load(this, () -> dao.getRecordsByPatient(patientId), this::refreshTable);
+        } catch (NumberFormatException ex) {
+            AsyncUI.load(this, dao::getAllRecords, this::refreshTable);
+        }
+    }
+
+    private void exportRecordsPdf() {
+        try {
+            File file = ExportUtils.exportTableToPdf(
+                    "medical-records",
+                    table,
+                    Arrays.asList("MediCore Medical Records", "Rows: " + tableModel.getRowCount())
+            );
+            ExportUtils.openFile(file, this);
+        } catch (Exception e) {
+            warn("PDF export failed: " + e.getMessage());
+        }
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "Error",   JOptionPane.ERROR_MESSAGE); }

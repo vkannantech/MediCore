@@ -1,6 +1,7 @@
 package medicore.auth;
 
 import medicore.auth.AuthDAO;
+import medicore.ui.UIUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -26,8 +27,9 @@ public class SignupFrame extends JFrame {
         setTitle("MediCore — Sign Up");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(480, 580);
+        setMinimumSize(new Dimension(420, 540));
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
         buildUI();
     }
 
@@ -57,7 +59,7 @@ public class SignupFrame extends JFrame {
         title.setForeground(TEXT_WHITE);
         title.setAlignmentX(CENTER_ALIGNMENT);
 
-        JLabel sub = new JLabel("Register as Admin / Staff", SwingConstants.CENTER);
+        JLabel sub = new JLabel("New accounts are created as normal users", SwingConstants.CENTER);
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         sub.setForeground(ACCENT_CYAN);
         sub.setAlignmentX(CENTER_ALIGNMENT);
@@ -107,7 +109,7 @@ public class SignupFrame extends JFrame {
 
         mainPanel.add(header, BorderLayout.NORTH);
         mainPanel.add(card, BorderLayout.CENTER);
-        setContentPane(mainPanel);
+        setContentPane(UIUtils.wrapScrollable(mainPanel, BG_DARK));
     }
 
     private void doSignup() {
@@ -127,7 +129,9 @@ public class SignupFrame extends JFrame {
             return;
         }
         if (authDAO.signup(user, pass)) {
-            JOptionPane.showMessageDialog(this, "Account created successfully! Please login.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Account created successfully as a normal user. Only admin accounts should be changed in the database.",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
             new LoginFrame().setVisible(true);
             dispose();
         } else {

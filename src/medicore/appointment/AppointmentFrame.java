@@ -1,6 +1,9 @@
 package medicore.appointment;
 
 import medicore.doctor.DoctorDAO;
+import medicore.ui.AsyncUI;
+import medicore.ui.UIUtils;
+import medicore.util.ExportUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,6 +13,8 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.File;
+import java.util.Arrays;
 
 public class AppointmentFrame extends JFrame {
 
@@ -53,13 +58,16 @@ public class AppointmentFrame extends JFrame {
     private JRadioButton rbNormal, rbEmergency;
     private JLabel lblSuggestion;
     private DefaultTableModel tableModel;
+    private JTable table;
     private List<String[]> doctorCache;
 
     public AppointmentFrame() {
         setTitle("MediCore — Appointments");
-        setSize(920, 660);
+        setSize(1080, 760);
+        setMinimumSize(new Dimension(940, 660));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(true);
         buildUI();
         refreshTable();
     }
@@ -70,10 +78,12 @@ public class AppointmentFrame extends JFrame {
         root.add(makeHeader("📅  Appointment Management"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabs.setBackground(CARD); tabs.setForeground(TEXT);
         tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("📝  Book Appointment",   buildBookPanel());
+        tabs.addTab("📝  Book Appointment",   UIUtils.wrapScrollable(buildBookPanel(), BG));
         tabs.addTab("📋  All Appointments",   buildViewPanel());
+        tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
@@ -141,13 +151,25 @@ public class AppointmentFrame extends JFrame {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bar.setOpaque(false);
         JButton refresh = smallBtn("↻ Refresh", ACCENT);
+        JButton print = smallBtn("Print", new Color(16, 185, 129));
+        JButton pdf = smallBtn("Export PDF", new Color(245, 158, 11));
         refresh.addActionListener(e -> refreshTable());
+        print.addActionListener(e -> ExportUtils.printTable(table, "Appointments", this));
+        pdf.addActionListener(e -> exportAppointmentsPdf());
+        JButton btnUpdate = smallBtn("Update Status", ACCENT2);
+        JButton btnDelete = smallBtn("Delete", EMERG);
+        btnUpdate.addActionListener(e -> updateSelectedAppointmentStatus());
+        btnDelete.addActionListener(e -> deleteSelectedAppointment());
         bar.add(refresh);
+        bar.add(print);
+        bar.add(pdf);
+        bar.add(btnUpdate);
+        bar.add(btnDelete);
         p.add(bar, BorderLayout.NORTH);
 
         String[] cols = {"ID", "Patient", "Doctor", "Specialization", "Date", "Status"};
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         styleTable(table);
         p.add(new JScrollPane(table), BorderLayout.CENTER);
         return p;
@@ -191,8 +213,58 @@ public class AppointmentFrame extends JFrame {
 
     private void refreshTable() {
         if (tableModel == null) return;
-        tableModel.setRowCount(0);
-        for (String[] r : apptDao.getAllAppointments()) tableModel.addRow(r);
+        AsyncUI.load(this, apptDao::getAllAppointments, rows -> {
+            tableModel.setRowCount(0);
+            for (String[] r : rows) tableModel.addRow(r);
+        });
+    }
+
+    private void exportAppointmentsPdf() {
+        try {
+            File file = ExportUtils.exportTableToPdf(
+                    "appointments",
+                    table,
+                    Arrays.asList("MediCore Appointment Report", "Rows: " + tableModel.getRowCount())
+            );
+            ExportUtils.openFile(file, this);
+        } catch (Exception e) {
+            warn("PDF export failed: " + e.getMessage());
+        }
+    }
+
+    private void updateSelectedAppointmentStatus() {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select an appointment first."); return; }
+        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        String current = String.valueOf(tableModel.getValueAt(row, 5));
+        JComboBox<String> statusBox = new JComboBox<>(new String[] {"Normal", "Emergency", "Confirmed", "Completed", "Cancelled"});
+        styleCombo(statusBox);
+        statusBox.setSelectedItem(current);
+        int result = JOptionPane.showConfirmDialog(this, statusBox, "Update Appointment Status",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+        if (apptDao.updateAppointmentStatus(id, (String) statusBox.getSelectedItem())) {
+            info("Appointment updated.");
+            refreshTable();
+        } else {
+            warn("Failed to update appointment.");
+        }
+    }
+
+    private void deleteSelectedAppointment() {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select an appointment first."); return; }
+        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int confirm = JOptionPane.showConfirmDialog(this, "Delete appointment #" + id + "?",
+                "Delete Appointment", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (apptDao.deleteAppointment(id)) {
+                info("Appointment deleted.");
+                refreshTable();
+            } else {
+                warn("Failed to delete appointment.");
+            }
+        }
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "Error", JOptionPane.ERROR_MESSAGE); }

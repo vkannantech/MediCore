@@ -1,5 +1,8 @@
 package medicore.doctor;
 
+import medicore.ui.UIUtils;
+import medicore.ui.AsyncUI;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -22,12 +25,15 @@ public class DoctorFrame extends JFrame {
     private JTextField txtName, txtSpec;
     private JComboBox<String> cmbAvail;
     private DefaultTableModel tableModel;
+    private JTable table;
 
     public DoctorFrame() {
         setTitle("MediCore — Doctor Management");
-        setSize(850, 580);
+        setSize(980, 700);
+        setMinimumSize(new Dimension(850, 620));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(true);
         buildUI();
         refreshTable();
     }
@@ -38,11 +44,13 @@ public class DoctorFrame extends JFrame {
         root.add(makeHeader("🩺  Doctor Management"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabs.setBackground(CARD);
         tabs.setForeground(TEXT);
         tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("➕  Add Doctor",   buildAddPanel());
+        tabs.addTab("➕  Add Doctor",   UIUtils.wrapScrollable(buildAddPanel(), BG));
         tabs.addTab("📋  View Doctors", buildViewPanel());
+        tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
@@ -83,9 +91,19 @@ public class DoctorFrame extends JFrame {
 
         String[] cols = {"ID", "Name", "Specialization", "Availability"};
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         styleTable(table);
         p.add(new JScrollPane(table), BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        actions.setOpaque(false);
+        JButton btnEdit = smallBtn("Edit", new Color(245, 158, 11));
+        JButton btnDelete = smallBtn("Delete", new Color(239, 68, 68));
+        btnEdit.addActionListener(e -> editSelectedDoctor());
+        btnDelete.addActionListener(e -> deleteSelectedDoctor());
+        actions.add(btnEdit);
+        actions.add(btnDelete);
+        p.add(actions, BorderLayout.SOUTH);
         return p;
     }
 
@@ -101,8 +119,60 @@ public class DoctorFrame extends JFrame {
 
     private void refreshTable() {
         if (tableModel == null) return;
-        tableModel.setRowCount(0);
-        for (String[] r : dao.getAllDoctors()) tableModel.addRow(r);
+        AsyncUI.load(this, dao::getAllDoctors, rows -> {
+            tableModel.setRowCount(0);
+            for (String[] r : rows) tableModel.addRow(r);
+        });
+    }
+
+    private void editSelectedDoctor() {
+        int id = getSelectedDoctorId();
+        if (id < 0) return;
+        String[] doctor = dao.getDoctorById(id);
+        if (doctor == null) { warn("Unable to load doctor."); return; }
+
+        JTextField nameField = input(); nameField.setText(doctor[1]);
+        JTextField specField = input(); specField.setText(doctor[2]);
+        JComboBox<String> availBox = new JComboBox<>(new String[]{"Morning", "Afternoon", "Evening", "Night"});
+        styleCombo(availBox); availBox.setSelectedItem(doctor[3]);
+
+        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 8));
+        panel.add(label("Doctor Name")); panel.add(nameField);
+        panel.add(label("Specialization")); panel.add(specField);
+        panel.add(label("Availability")); panel.add(availBox);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Edit Doctor #" + id,
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+
+        if (dao.updateDoctor(id, nameField.getText().trim(), specField.getText().trim(),
+                (String) availBox.getSelectedItem())) {
+            info("Doctor updated.");
+            refreshTable();
+        } else {
+            warn("Failed to update doctor.");
+        }
+    }
+
+    private void deleteSelectedDoctor() {
+        int id = getSelectedDoctorId();
+        if (id < 0) return;
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Delete doctor #" + id + "?\nAppointments linked to this doctor must be removed first.",
+                "Delete Doctor", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) return;
+        if (dao.deleteDoctor(id)) {
+            info("Doctor deleted.");
+            refreshTable();
+        } else {
+            warn("Delete failed. Remove related appointments first.");
+        }
+    }
+
+    private int getSelectedDoctorId() {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select a doctor first."); return -1; }
+        return Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "Error", JOptionPane.ERROR_MESSAGE); }

@@ -1,10 +1,16 @@
 package medicore.billing;
 
+import medicore.ui.UIUtils;
+import medicore.ui.AsyncUI;
+import medicore.util.ExportUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.File;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 public class BillingFrame extends JFrame {
@@ -21,13 +27,18 @@ public class BillingFrame extends JFrame {
     private static final Color BORDER_C = new Color(71, 85, 105);
 
     private JTextField txtPatientId, txtAmount, txtDate;
+    private JTextArea txtNotes;
+    private JComboBox<String> cmbPaymentStatus, cmbPaymentMethod;
     private DefaultTableModel tableModel;
+    private JTable table;
 
     public BillingFrame() {
         setTitle("MediCore — Billing");
-        setSize(850, 580);
+        setSize(1020, 720);
+        setMinimumSize(new Dimension(880, 620));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(true);
         buildUI();
         refreshTable();
     }
@@ -38,10 +49,12 @@ public class BillingFrame extends JFrame {
         root.add(makeHeader("💳  Billing System"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabs.setBackground(CARD); tabs.setForeground(TEXT);
         tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("🧾  Generate Bill", buildAddPanel());
+        tabs.addTab("🧾  Generate Bill", UIUtils.wrapScrollable(buildAddPanel(), BG));
         tabs.addTab("📋  View Bills",    buildViewPanel());
+        tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
@@ -80,8 +93,21 @@ public class BillingFrame extends JFrame {
         g.gridy = 4; txtAmount = input(); p.add(txtAmount, g);
         g.gridy = 5; p.add(label("Date (YYYY-MM-DD)"), g);
         g.gridy = 6; txtDate = input(); txtDate.setText(LocalDate.now().toString()); p.add(txtDate, g);
+        g.gridy = 7; p.add(label("Payment Status"), g);
+        g.gridy = 8;
+        cmbPaymentStatus = new JComboBox<>(new String[] {"Unpaid", "Paid", "Partial"});
+        styleCombo(cmbPaymentStatus); p.add(cmbPaymentStatus, g);
+        g.gridy = 9; p.add(label("Payment Method"), g);
+        g.gridy = 10;
+        cmbPaymentMethod = new JComboBox<>(new String[] {"Cash", "UPI", "Card", "Net Banking"});
+        styleCombo(cmbPaymentMethod); p.add(cmbPaymentMethod, g);
+        g.gridy = 11; p.add(label("Notes"), g);
+        g.gridy = 12;
+        txtNotes = new JTextArea(3, 20);
+        styleTextArea(txtNotes);
+        p.add(new JScrollPane(txtNotes), g);
 
-        g.gridy = 7; g.insets = new Insets(20, 0, 0, 0);
+        g.gridy = 13; g.insets = new Insets(20, 0, 0, 0);
         p.add(actionBtn("Generate & Save Bill", GOLD, e -> doSave()), g);
         return p;
     }
@@ -94,12 +120,19 @@ public class BillingFrame extends JFrame {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bar.setOpaque(false);
         JButton refresh = smallBtn("↻ Refresh", ACCENT);
-        refresh.addActionListener(e -> refreshTable()); bar.add(refresh);
+        JButton print = smallBtn("Print", new Color(16, 185, 129));
+        JButton pdf = smallBtn("Export PDF", GOLD);
+        refresh.addActionListener(e -> refreshTable());
+        print.addActionListener(e -> ExportUtils.printTable(table, "Billing Report", this));
+        pdf.addActionListener(e -> exportBillsPdf());
+        bar.add(refresh);
+        bar.add(print);
+        bar.add(pdf);
         p.add(bar, BorderLayout.NORTH);
 
-        String[] cols = {"Bill ID", "Patient Name", "Amount (₹)", "Date"};
+        String[] cols = {"Bill ID", "Patient Name", "Amount (₹)", "Date", "Status", "Method"};
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         styleTable(table);
         p.add(new JScrollPane(table), BorderLayout.CENTER);
         return p;
@@ -113,17 +146,36 @@ public class BillingFrame extends JFrame {
         int patientId; double amount;
         try { patientId = Integer.parseInt(pid); } catch (NumberFormatException e) { warn("Patient ID must be a number."); return; }
         try { amount = Double.parseDouble(amtStr); } catch (NumberFormatException e) { warn("Amount must be a valid number."); return; }
-        if (dao.saveBill(patientId, amount, date)) {
+        if (dao.saveBill(patientId, amount, date, (String) cmbPaymentStatus.getSelectedItem(),
+                (String) cmbPaymentMethod.getSelectedItem(), txtNotes.getText().trim())) {
             info("Bill saved! Amount: ₹" + String.format("%.2f", amount));
             txtPatientId.setText(""); txtAmount.setText("");
+            txtNotes.setText("");
+            cmbPaymentStatus.setSelectedIndex(0);
+            cmbPaymentMethod.setSelectedIndex(0);
             refreshTable();
-        } else { warn("Failed to save bill. Check Patient ID."); }
+        } else { warn("Failed to save bill. Run the SQL upgrade script and check Patient ID."); }
     }
 
     private void refreshTable() {
         if (tableModel == null) return;
-        tableModel.setRowCount(0);
-        for (String[] r : dao.getAllBills()) tableModel.addRow(r);
+        AsyncUI.load(this, dao::getAllBills, rows -> {
+            tableModel.setRowCount(0);
+            for (String[] r : rows) tableModel.addRow(r);
+        });
+    }
+
+    private void exportBillsPdf() {
+        try {
+            File file = ExportUtils.exportTableToPdf(
+                    "billing-report",
+                    table,
+                    Arrays.asList("MediCore Billing Report", "Rows: " + tableModel.getRowCount())
+            );
+            ExportUtils.openFile(file, this);
+        } catch (Exception e) {
+            warn("PDF export failed: " + e.getMessage());
+        }
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "Error",   JOptionPane.ERROR_MESSAGE); }
@@ -153,6 +205,15 @@ public class BillingFrame extends JFrame {
         b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
+    }
+    private void styleCombo(JComboBox<String> c) {
+        c.setBackground(INPUT_BG); c.setForeground(TEXT); c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        c.setPreferredSize(new Dimension(0, 38));
+    }
+    private void styleTextArea(JTextArea ta) {
+        ta.setBackground(INPUT_BG); ta.setForeground(TEXT); ta.setCaretColor(TEXT);
+        ta.setFont(new Font("Segoe UI", Font.PLAIN, 13)); ta.setLineWrap(true); ta.setWrapStyleWord(true);
+        ta.setBorder(new EmptyBorder(8, 10, 8, 10));
     }
     private JButton smallBtn(String txt, Color bg) {
         JButton b = new JButton(txt); b.setBackground(bg); b.setForeground(Color.WHITE);
