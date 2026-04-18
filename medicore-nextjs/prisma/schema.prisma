@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique @db.VarChar(50)
+  password  String   @db.VarChar(100)
+  role      String   @default("USER") @db.VarChar(20)
+  patientId Int?     @unique @map("patient_id")
+  patient   Patient? @relation(fields: [patientId], references: [patientId])
+
+  @@map("users")
+}
+
+model Patient {
+  patientId      Int             @id @default(autoincrement()) @map("patient_id")
+  name           String          @db.VarChar(100)
+  age            Int?
+  gender         String?         @db.VarChar(10)
+  phone          String?         @db.VarChar(15)
+  users          User[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  billings       Billing[]
+  reports        PatientReport[]
+
+  @@index([name], map: "idx_patient_name")
+  @@index([phone], map: "idx_patient_phone")
+  @@map("patient")
+}
+
+model Doctor {
+  doctorId       Int           @id @default(autoincrement()) @map("doctor_id")
+  name           String        @db.VarChar(100)
+  specialization String?       @db.VarChar(100)
+  availability   String?       @db.VarChar(50)
+  appointments   Appointment[]
+
+  @@index([specialization], map: "idx_doctor_specialization")
+  @@map("doctor")
+}
+
+model Appointment {
+  appointmentId Int      @id @default(autoincrement()) @map("appointment_id")
+  patientId     Int      @map("patient_id")
+  doctorId      Int      @map("doctor_id")
+  date          DateTime @db.Date
+  status        String?  @db.VarChar(50)
+  patient       Patient  @relation(fields: [patientId], references: [patientId], onDelete: Restrict)
+  doctor        Doctor   @relation(fields: [doctorId], references: [doctorId], onDelete: Restrict)
+
+  @@index([patientId], map: "idx_appointment_patient")
+  @@index([doctorId], map: "idx_appointment_doctor")
+  @@index([date], map: "idx_appointment_date")
+  @@map("appointment")
+}
+
+model MedicalRecord {
+  recordId      Int      @id @default(autoincrement()) @map("record_id")
+  patientId     Int      @map("patient_id")
+  diagnosis     String   @db.Text
+  prescription  String?  @db.Text
+  patient       Patient  @relation(fields: [patientId], references: [patientId], onDelete: Restrict)
+
+  @@index([patientId], map: "idx_medical_record_patient")
+  @@map("medical_record")
+}
+
+model Billing {
+  billId         Int      @id @default(autoincrement()) @map("bill_id")
+  patientId      Int      @map("patient_id")
+  amount         Float
+  date           DateTime @db.Date
+  paymentStatus  String   @default("Unpaid") @db.VarChar(20) @map("payment_status")
+  paymentMethod  String   @default("Cash") @db.VarChar(30) @map("payment_method")
+  notes          String?  @db.Text
+  patient        Patient  @relation(fields: [patientId], references: [patientId], onDelete: Restrict)
+
+  @@index([patientId], map: "idx_billing_patient")
+  @@index([date], map: "idx_billing_date")
+  @@map("billing")
+}
+
+model PatientReport {
+  reportId        Int      @id @default(autoincrement()) @map("report_id")
+  patientId       Int      @map("patient_id")
+  reportType      String   @db.VarChar(50) @map("report_type")
+  reportName      String   @db.VarChar(150) @map("report_name")
+  reportDate      DateTime @db.Date @map("report_date")
+  status          String   @default("Pending") @db.VarChar(20)
+  resultSummary   String?  @db.Text @map("result_summary")
+  attachmentPath  String?  @db.VarChar(255) @map("attachment_path")
+  patient         Patient  @relation(fields: [patientId], references: [patientId], onDelete: Restrict)
+
+  @@index([patientId], map: "idx_patient_report_patient")
+  @@index([reportDate], map: "idx_patient_report_date")
+  @@map("patient_report")
+}
