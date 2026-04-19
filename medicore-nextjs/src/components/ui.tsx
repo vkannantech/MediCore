@@ -1,5 +1,93 @@
 import Link from "next/link";
 
+type StatIconName = "patients" | "doctors" | "calendar" | "records" | "revenue" | "bills" | "reports";
+
+function StatIcon({ name }: { name: StatIconName }) {
+  const iconClass = "size-5";
+
+  if (name === "patients") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M16 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="9.5" cy="7" r="4" />
+        <path d="M21 20v-2a3.2 3.2 0 0 0-2.5-3.1" />
+        <path d="M16.5 3.3a4 4 0 0 1 0 7.4" />
+      </svg>
+    );
+  }
+
+  if (name === "doctors") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M8 3v4a4 4 0 0 0 8 0V3" />
+        <path d="M6 3h4" />
+        <path d="M14 3h4" />
+        <path d="M12 11v3a5 5 0 0 0 10 0v-1" />
+        <circle cx="22" cy="11" r="1" />
+        <path d="M4 14h6" />
+        <path d="M7 11v6" />
+      </svg>
+    );
+  }
+
+  if (name === "calendar") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M16 3v4" />
+        <path d="M8 3v4" />
+        <path d="M3 10h18" />
+        <path d="M9 15h6" />
+        <path d="M12 12v6" />
+      </svg>
+    );
+  }
+
+  if (name === "records") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+        <path d="M14 3v5h5" />
+        <path d="M9 14h6" />
+        <path d="M12 11v6" />
+      </svg>
+    );
+  }
+
+  if (name === "revenue") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M4 7h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
+        <path d="M7 7V5h10v2" />
+        <circle cx="12" cy="13" r="2.5" />
+        <path d="M6 11h1" />
+        <path d="M17 15h1" />
+      </svg>
+    );
+  }
+
+  if (name === "bills") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+        <path d="M9 8h6" />
+        <path d="M9 12h6" />
+        <path d="M9 16h3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M5 4h14v16H5z" />
+      <path d="M8 8h8" />
+      <path d="M8 12h8" />
+      <path d="M8 16h5" />
+      <path d="m16 16 1.5 1.5L21 14" />
+    </svg>
+  );
+}
+
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-3">
@@ -63,10 +151,12 @@ export function StatCard({
   label,
   value,
   tone = "green",
+  icon,
 }: {
   label: string;
   value: string | number;
   tone?: "green" | "coral" | "gold" | "ink" | "mint";
+  icon?: StatIconName;
 }) {
   const tones = {
     green: "bg-[#e2f7ed] text-[#0f765f]",
@@ -78,7 +168,9 @@ export function StatCard({
 
   return (
     <div className="rounded-lg border border-[#d8e8df] bg-white p-4 shadow-sm">
-      <div className={`mb-4 size-10 rounded-lg ${tones[tone]}`} />
+      <div className={`mb-4 grid size-12 place-items-center rounded-lg ${tones[tone]}`}>
+        {icon ? <StatIcon name={icon} /> : null}
+      </div>
       <p className="text-sm font-semibold text-[#61736c]">{label}</p>
       <p className="mt-1 text-3xl font-black tracking-normal text-[#19332c]">{value}</p>
     </div>

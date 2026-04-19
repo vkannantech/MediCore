@@ -24,11 +24,11 @@ export default async function DashboardPage() {
         description="Live hospital counts, today's appointment load, and the operational areas that need quick attention."
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Patients" value={patients} tone="green" />
-        <StatCard label="Doctors" value={doctors} tone="mint" />
-        <StatCard label="Today Appointments" value={appointmentsToday} tone="coral" />
-        <StatCard label="Medical Records" value={records} tone="ink" />
-        <StatCard label="Revenue" value={`Rs. ${(revenue._sum.amount ?? 0).toFixed(2)}`} tone="gold" />
+        <StatCard label="Patients" value={patients} tone="green" icon="patients" />
+        <StatCard label="Doctors" value={doctors} tone="mint" icon="doctors" />
+        <StatCard label="Today Appointments" value={appointmentsToday} tone="coral" icon="calendar" />
+        <StatCard label="Medical Records" value={records} tone="ink" icon="records" />
+        <StatCard label="Revenue" value={`Rs. ${(revenue._sum.amount ?? 0).toFixed(2)}`} tone="gold" icon="revenue" />
       </div>
       <SectionCard title="Quick actions" subtitle="Jump into the most common desk workflows.">
         <div className="grid gap-3 md:grid-cols-3">

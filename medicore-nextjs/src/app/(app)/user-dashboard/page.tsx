@@ -30,10 +30,10 @@ export default async function UserDashboardPage() {
         }
       />
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-        <StatCard label="Appointments" value={appointments} tone="green" />
-        <StatCard label="Records" value={records} tone="ink" />
-        <StatCard label="Bills" value={bills} tone="gold" />
-        <StatCard label="Reports" value={reports} tone="coral" />
+        <StatCard label="Appointments" value={appointments} tone="green" icon="calendar" />
+        <StatCard label="Records" value={records} tone="ink" icon="records" />
+        <StatCard label="Bills" value={bills} tone="gold" icon="bills" />
+        <StatCard label="Reports" value={reports} tone="coral" icon="reports" />
       </div>
       <SectionCard title="Next steps" subtitle="Your profile keeps everything grouped by patient record.">
         <div className="grid gap-3 md:grid-cols-2">
