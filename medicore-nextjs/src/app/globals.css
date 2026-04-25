@@ -1,16 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4fbf7;
-  --foreground: #19332c;
+  --background: #f6faf8;
+  --foreground: #182b27;
   --panel: #ffffff;
-  --panel-soft: #edf8f2;
-  --line: #d8e8df;
-  --muted: #61736c;
-  --brand: #0f8f72;
-  --brand-dark: #096b57;
-  --accent: #e4574f;
-  --gold: #c79013;
+  --panel-soft: #eef7f3;
+  --line: #d7e4dd;
+  --muted: #667871;
+  --brand: #0b8f73;
+  --brand-dark: #076854;
+  --accent: #d84a42;
+  --gold: #b9820f;
+  --blue: #3369a8;
+  --violet: #7257a8;
 }
 
 @theme inline {
@@ -38,6 +40,15 @@ textarea {
   font: inherit;
 }
 
+button,
+select {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 input,
 select,
 textarea {
@@ -47,6 +58,11 @@ textarea {
 textarea {
   min-height: 96px;
   resize: vertical;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(11, 143, 115, 0.28);
+  outline-offset: 2px;
 }
 
 ::selection {
@@ -59,7 +75,7 @@ textarea {
     width: 100%;
     border-radius: 8px;
     border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.96);
     padding: 0.72rem 0.85rem;
     color: var(--foreground);
     outline: none;
@@ -83,6 +99,10 @@ textarea {
     font-weight: 700;
     line-height: 1;
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(0);
   }
 
   .btn:hover {
@@ -132,8 +152,8 @@ textarea {
 
   .surface {
     border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 20px 55px rgba(35, 72, 62, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 18px 48px rgba(35, 72, 62, 0.07);
   }
 
   .record-card {
@@ -141,5 +161,23 @@ textarea {
     border: 1px solid var(--line);
     background: #ffffff;
     padding: 1rem;
+    box-shadow: 0 10px 24px rgba(31, 54, 48, 0.04);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    padding: 0.22rem 0.58rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .app-shell {
+    background:
+      linear-gradient(135deg, rgba(244, 250, 247, 0.96) 0%, rgba(246, 250, 248, 0.96) 42%, rgba(239, 246, 244, 0.96) 100%),
+      repeating-linear-gradient(90deg, rgba(11, 143, 115, 0.035) 0 1px, transparent 1px 72px);
   }
 }

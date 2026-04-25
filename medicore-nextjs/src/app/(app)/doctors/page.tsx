@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
+import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function DoctorsPage() {
   await requireSession("ADMIN");
@@ -43,6 +43,8 @@ export default async function DoctorsPage() {
   }
 
   const doctors = await prisma.doctor.findMany({ orderBy: { doctorId: "desc" } });
+  const morningDoctors = doctors.filter((doctor) => doctor.availability === "Morning").length;
+  const eveningDoctors = doctors.filter((doctor) => doctor.availability === "Evening").length;
 
   return (
     <div className="space-y-5">
@@ -51,6 +53,11 @@ export default async function DoctorsPage() {
         title="Doctor Management"
         description="Maintain doctor availability and specializations for accurate appointment booking."
       />
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard label="Total Doctors" value={doctors.length} tone="blue" icon="doctors" />
+        <StatCard label="Morning Coverage" value={morningDoctors} tone="green" icon="calendar" />
+        <StatCard label="Evening Coverage" value={eveningDoctors} tone="violet" icon="calendar" />
+      </div>
       <SectionCard title="Add Doctor">
         <form action={addDoctor} className="grid gap-3 md:grid-cols-4">
           <input name="name" required placeholder="Doctor name" className="field" />
@@ -86,6 +93,10 @@ export default async function DoctorsPage() {
                 />
                 <button className="btn btn-warning btn-compact">Update</button>
               </form>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <StatusPill label={d.specialization ?? "General"} tone="blue" />
+                <StatusPill label={d.availability ?? "Not scheduled"} tone="green" />
+              </div>
               <form action={deleteDoctor} className="mt-2">
                 <input type="hidden" name="doctorId" value={d.doctorId} />
                 <button className="btn btn-danger btn-compact">Delete</button>

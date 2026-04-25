@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
+import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/ui";
 
 export default async function RecordsPage({
   searchParams,
@@ -46,11 +46,17 @@ export default async function RecordsPage({
     revalidatePath("/dashboard");
   }
 
-  const records = await prisma.medicalRecord.findMany({
-    where: filterPatientId ? { patientId: filterPatientId } : undefined,
-    include: { patient: true },
-    orderBy: { recordId: "desc" },
-  });
+  const [records, totalRecords, filteredPatient] = await Promise.all([
+    prisma.medicalRecord.findMany({
+      where: filterPatientId ? { patientId: filterPatientId } : undefined,
+      include: { patient: true },
+      orderBy: { recordId: "desc" },
+    }),
+    prisma.medicalRecord.count(),
+    filterPatientId
+      ? prisma.patient.findUnique({ where: { patientId: filterPatientId }, select: { name: true } })
+      : null,
+  ]);
 
   return (
     <div className="space-y-5">
@@ -59,10 +65,15 @@ export default async function RecordsPage({
         title="Medical Records"
         description="Create diagnoses, prescriptions, and patient-specific record history."
       />
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard label="Total Records" value={totalRecords} tone="ink" icon="records" />
+        <StatCard label="Current View" value={records.length} tone="blue" icon="records" />
+        <StatCard label="Patient Filter" value={filteredPatient?.name ?? "All"} tone="green" icon="patients" />
+      </div>
 
       <SectionCard title="Add Record">
         <form action={addRecord} className="grid gap-2">
-          <input name="patientId" required placeholder="Patient ID" className="field" />
+          <input name="patientId" required inputMode="numeric" placeholder="Patient ID" className="field" />
           <textarea name="diagnosis" required placeholder="Diagnosis" className="field" />
           <textarea name="prescription" placeholder="Prescription" className="field" />
           <button className="btn btn-primary">Save</button>
@@ -75,6 +86,7 @@ export default async function RecordsPage({
             name="patientId"
             placeholder="Filter by Patient ID"
             defaultValue={filterPatientId || ""}
+            inputMode="numeric"
             className="field max-w-sm"
           />
           <button className="btn btn-secondary">Filter</button>
@@ -86,7 +98,7 @@ export default async function RecordsPage({
               <form action={updateRecord}>
                 <input type="hidden" name="recordId" value={r.recordId} />
                 <p className="mb-3 text-sm font-bold text-[#19332c]">
-                  <span className="text-[#0f8f72]">#{r.recordId}</span> {r.patient.name}
+                  <span className="text-[#0f8f72]">#{r.recordId}</span> {r.patient.name} / Patient #{r.patientId}
                 </p>
                 <textarea
                   name="diagnosis"

@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
+import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function ProfilePage() {
   const session = await requireSession("USER");
@@ -25,6 +25,12 @@ export default async function ProfilePage() {
         title={patient.name}
         description="Appointments, medical records, bills, and diagnostic reports connected to your profile."
       />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Appointments" value={patient.appointments.length} tone="blue" icon="calendar" />
+        <StatCard label="Records" value={patient.medicalRecords.length} tone="ink" icon="records" />
+        <StatCard label="Bills" value={patient.billings.length} tone="gold" icon="bills" />
+        <StatCard label="Reports" value={patient.reports.length} tone="violet" icon="reports" />
+      </div>
 
       <SectionCard title="Patient Profile">
         <div className="grid gap-3 md:grid-cols-5">
@@ -48,8 +54,16 @@ export default async function ProfilePage() {
         <ul className="space-y-2 text-sm">
           {patient.appointments.map((a) => (
             <li key={a.appointmentId} className="record-card">
-              <span className="font-black text-[#0f8f72]">#{a.appointmentId}</span> {a.doctor.name} ({a.doctor.specialization}) on{" "}
-              {a.date.toISOString().slice(0, 10)} - {a.status}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <span>
+                  <span className="font-black text-[#0f8f72]">#{a.appointmentId}</span> {a.doctor.name} ({a.doctor.specialization}) on{" "}
+                  {a.date.toISOString().slice(0, 10)}
+                </span>
+                <StatusPill
+                  label={a.status ?? "Normal"}
+                  tone={a.status === "Emergency" ? "coral" : a.status === "Completed" ? "green" : "blue"}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -73,8 +87,15 @@ export default async function ProfilePage() {
         <ul className="space-y-2 text-sm">
           {patient.billings.map((b) => (
             <li key={b.billId} className="record-card">
-              <span className="font-black text-[#0f8f72]">#{b.billId}</span> Rs. {b.amount.toFixed(2)} ({b.paymentStatus}) [
-              {b.paymentMethod}]
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <span>
+                  <span className="font-black text-[#0f8f72]">#{b.billId}</span> Rs. {b.amount.toFixed(2)} / {b.paymentMethod}
+                </span>
+                <StatusPill
+                  label={b.paymentStatus}
+                  tone={b.paymentStatus === "Paid" ? "green" : b.paymentStatus === "Partial" ? "gold" : "coral"}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -85,7 +106,15 @@ export default async function ProfilePage() {
         <ul className="space-y-2 text-sm">
           {patient.reports.map((r) => (
             <li key={r.reportId} className="record-card">
-              <span className="font-black text-[#0f8f72]">#{r.reportId}</span> {r.reportType} / {r.reportName} ({r.status})
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <span>
+                  <span className="font-black text-[#0f8f72]">#{r.reportId}</span> {r.reportType} / {r.reportName}
+                </span>
+                <StatusPill
+                  label={r.status}
+                  tone={r.status === "Critical" ? "coral" : r.status === "Reviewed" ? "green" : r.status === "Received" ? "blue" : "gold"}
+                />
+              </div>
             </li>
           ))}
         </ul>

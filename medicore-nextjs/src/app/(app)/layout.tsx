@@ -21,10 +21,15 @@ const userNav = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   const nav = session.role === "ADMIN" ? adminNav : userNav;
+  const today = new Intl.DateTimeFormat("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  }).format(new Date());
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#dff8ee,_transparent_34%),linear-gradient(180deg,_#f4fbf7_0%,_#edf7f1_48%,_#f8fbf9_100%)]">
-      <header className="sticky top-0 z-20 border-b border-[#d8e8df] bg-white/88 backdrop-blur">
+    <div className="app-shell min-h-screen">
+      <header className="sticky top-0 z-20 border-b border-[#d8e8df] bg-white/92 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-4">
             <BrandMark />
@@ -33,18 +38,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <p className="text-sm font-black text-[#19332c]">{session.username}</p>
             </div>
           </div>
-          <nav className="flex flex-wrap items-center gap-2 md:justify-end">
+          <nav className="flex items-center gap-2 overflow-x-auto pb-1 md:flex-wrap md:justify-end md:overflow-visible md:pb-0">
             {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="rounded-lg border border-[#d8e8df] bg-white px-3 py-2 text-sm font-bold text-[#31534a] transition hover:-translate-y-0.5 hover:border-[#9fd4c2] hover:bg-[#f7fffb]"
+                className="shrink-0 rounded-lg border border-[#d8e8df] bg-white px-3 py-2 text-sm font-bold text-[#31534a] transition hover:-translate-y-0.5 hover:border-[#9fd4c2] hover:bg-[#f7fffb]"
               >
                 {item.label}
               </Link>
             ))}
             <div className="hidden rounded-lg border border-[#d8e8df] bg-[#f7fffb] px-3 py-2 md:block">
-              <p className="text-[11px] font-bold uppercase tracking-normal text-[#61736c]">{session.role}</p>
+              <p className="text-[11px] font-bold uppercase tracking-normal text-[#61736c]">{today} / {session.role}</p>
               <p className="text-sm font-black text-[#19332c]">{session.username}</p>
             </div>
             <LogoutButton />

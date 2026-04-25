@@ -1,18 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { requireSession, hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
-
-function randomPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#";
-  let out = "";
-  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
-}
+import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 function usernameBase(name: string, patientId: number) {
   const clean = name.toLowerCase().replace(/[^a-z0-9]/g, "") || "patient";
   return `${clean}${patientId}`;
+}
+
+function defaultPatientPassword(username: string) {
+  return `Medi@${username}`;
 }
 
 export default async function PatientsPage() {
@@ -58,7 +55,7 @@ export default async function PatientsPage() {
     revalidatePath("/dashboard");
   }
 
-  async function createPatientLogin(formData: FormData) {
+  async function ensurePatientLogin(formData: FormData) {
     "use server";
     await requireSession("ADMIN");
     const patientId = Number(formData.get("patientId"));
@@ -66,7 +63,14 @@ export default async function PatientsPage() {
     if (!patient) return;
 
     const existing = await prisma.user.findFirst({ where: { patientId } });
-    if (existing) return;
+    if (existing) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { password: await hashPassword(defaultPatientPassword(existing.username)) },
+      });
+      revalidatePath("/patients");
+      return;
+    }
 
     const base = usernameBase(patient.name, patientId);
     let username = base;
@@ -75,11 +79,10 @@ export default async function PatientsPage() {
       username = `${base}${i++}`;
     }
 
-    const pass = randomPassword();
     await prisma.user.create({
       data: {
         username,
-        password: await hashPassword(pass),
+        password: await hashPassword(defaultPatientPassword(username)),
         role: "USER",
         patientId,
       },
@@ -91,6 +94,8 @@ export default async function PatientsPage() {
     orderBy: { patientId: "desc" },
     include: { users: true },
   });
+  const linkedPatients = patients.filter((patient) => patient.users.length > 0).length;
+  const unlinkedPatients = patients.length - linkedPatients;
 
   return (
     <div className="space-y-5">
@@ -99,11 +104,16 @@ export default async function PatientsPage() {
         title="Patient Management"
         description="Register patients, keep contact details current, and create secure patient logins."
       />
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard label="Total Patients" value={patients.length} tone="green" icon="patients" />
+        <StatCard label="Portal Enabled" value={linkedPatients} tone="blue" icon="patients" />
+        <StatCard label="Needs Login" value={unlinkedPatients} tone={unlinkedPatients > 0 ? "gold" : "green"} icon="patients" />
+      </div>
 
       <SectionCard title="Add Patient">
         <form action={addPatient} className="grid gap-3 md:grid-cols-5">
           <input name="name" required placeholder="Name" className="field" />
-          <input name="age" required type="number" placeholder="Age" className="field" />
+          <input name="age" required type="number" min="0" max="130" placeholder="Age" className="field" />
           <select name="gender" className="field">
             <option>Male</option>
             <option>Female</option>
@@ -114,7 +124,10 @@ export default async function PatientsPage() {
         </form>
       </SectionCard>
 
-      <SectionCard title="Patients">
+      <SectionCard
+        title="Patients"
+        subtitle="New patient portal credentials use username format name+patientId. Example: username rajum19, password Medi@rajum19."
+      >
         {patients.length === 0 ? <EmptyState message="No patients registered yet." /> : null}
         <div className="space-y-3">
           {patients.map((p) => (
@@ -126,8 +139,14 @@ export default async function PatientsPage() {
                 <p className="text-[#61736c]">{p.gender ?? "-"}</p>
                 <p className="text-[#61736c]">{p.phone ?? "-"}</p>
               </div>
-              <div className="mb-3 inline-flex rounded-lg bg-[#edf8f2] px-3 py-1 text-xs font-bold text-[#31534a]">
-                User Link: {p.users[0]?.username ? `Yes (${p.users[0].username})` : "No"}
+              <div className="mb-3 flex flex-wrap gap-2">
+                <StatusPill
+                  label={p.users[0]?.username ? `Portal: ${p.users[0].username}` : "Portal not created"}
+                  tone={p.users[0]?.username ? "green" : "gold"}
+                />
+                {p.users[0]?.username ? (
+                  <StatusPill label={`Default password: ${defaultPatientPassword(p.users[0].username)}`} tone="blue" />
+                ) : null}
               </div>
               <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
                 <form action={updatePatient} className="grid gap-2 md:col-span-2 md:grid-cols-4">
@@ -140,9 +159,11 @@ export default async function PatientsPage() {
                     Update
                   </button>
                 </form>
-                <form action={createPatientLogin}>
+                <form action={ensurePatientLogin}>
                   <input type="hidden" name="patientId" value={p.patientId} />
-                  <button className="btn btn-secondary btn-compact w-full">Create Login</button>
+                  <button className="btn btn-secondary btn-compact w-full">
+                    {p.users[0]?.username ? "Reset Password" : "Create Login"}
+                  </button>
                 </form>
                 <form action={deletePatient}>
                   <input type="hidden" name="patientId" value={p.patientId} />

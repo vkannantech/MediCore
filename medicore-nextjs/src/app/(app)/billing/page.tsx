@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/ui";
+import { EmptyState, InsightCard, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function BillingPage() {
   await requireSession("ADMIN");
@@ -37,9 +37,11 @@ export default async function BillingPage() {
     revalidatePath("/billing");
   }
 
-  const [bills, summary] = await Promise.all([
+  const [bills, summary, paidBills, openBills] = await Promise.all([
     prisma.billing.findMany({ include: { patient: true }, orderBy: { billId: "desc" } }),
     prisma.billing.aggregate({ _sum: { amount: true }, _count: { _all: true } }),
+    prisma.billing.count({ where: { paymentStatus: "Paid" } }),
+    prisma.billing.count({ where: { paymentStatus: { in: ["Unpaid", "Partial"] } } }),
   ]);
 
   return (
@@ -49,10 +51,18 @@ export default async function BillingPage() {
         title="Billing"
         description="Generate bills, update payment state, and keep revenue records easy to scan."
       />
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-4">
         <StatCard label="Total Bills" value={summary._count._all} tone="ink" />
         <StatCard label="Total Revenue" value={`Rs. ${(summary._sum.amount ?? 0).toFixed(2)}`} tone="gold" />
+        <StatCard label="Paid Bills" value={paidBills} tone="green" icon="bills" />
+        <StatCard label="Open Bills" value={openBills} tone="coral" icon="bills" />
       </div>
+      <InsightCard
+        label="Collection health"
+        value={openBills === 0 ? "Clear" : `${openBills} open`}
+        detail="Open bills include unpaid and partial payments. Keep this number low for cleaner discharge workflows."
+        tone={openBills === 0 ? "green" : "gold"}
+      />
 
       <SectionCard title="Generate Bill">
         <form action={addBill} className="grid gap-2 md:grid-cols-3">
@@ -81,10 +91,16 @@ export default async function BillingPage() {
           {bills.map((b) => (
             <form key={b.billId} action={updateBill} className="record-card text-sm">
               <input type="hidden" name="billId" value={b.billId} />
-              <p className="mb-3 font-bold text-[#19332c]">
-                <span className="text-[#0f8f72]">#{b.billId}</span> {b.patient.name} - Rs. {b.amount.toFixed(2)} -{" "}
-                {b.date.toISOString().slice(0, 10)}
-              </p>
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <p className="font-bold text-[#19332c]">
+                  <span className="text-[#0f8f72]">#{b.billId}</span> {b.patient.name} / Rs. {b.amount.toFixed(2)} /{" "}
+                  {b.date.toISOString().slice(0, 10)}
+                </p>
+                <StatusPill
+                  label={b.paymentStatus}
+                  tone={b.paymentStatus === "Paid" ? "green" : b.paymentStatus === "Partial" ? "gold" : "coral"}
+                />
+              </div>
               <div className="grid gap-2 md:grid-cols-3">
                 <select
                   name="paymentStatus"

@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
+import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function ReportsPage({
   searchParams,
@@ -51,11 +51,16 @@ export default async function ReportsPage({
     revalidatePath("/dashboard");
   }
 
-  const reports = await prisma.patientReport.findMany({
-    where: patientId ? { patientId } : undefined,
-    include: { patient: true },
-    orderBy: [{ reportDate: "desc" }, { reportId: "desc" }],
-  });
+  const [reports, pendingReports, criticalReports, reviewedReports] = await Promise.all([
+    prisma.patientReport.findMany({
+      where: patientId ? { patientId } : undefined,
+      include: { patient: true },
+      orderBy: [{ reportDate: "desc" }, { reportId: "desc" }],
+    }),
+    prisma.patientReport.count({ where: { status: "Pending" } }),
+    prisma.patientReport.count({ where: { status: "Critical" } }),
+    prisma.patientReport.count({ where: { status: "Reviewed" } }),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -64,10 +69,16 @@ export default async function ReportsPage({
         title="Patient Test Reports"
         description="Store lab reports, track review status, and attach result summaries to patient history."
       />
+      <div className="grid gap-3 md:grid-cols-4">
+        <StatCard label="Current View" value={reports.length} tone="blue" icon="reports" />
+        <StatCard label="Pending" value={pendingReports} tone="gold" icon="reports" />
+        <StatCard label="Critical" value={criticalReports} tone="coral" icon="reports" />
+        <StatCard label="Reviewed" value={reviewedReports} tone="green" icon="reports" />
+      </div>
 
       <SectionCard title="Save Report">
         <form action={addReport} className="grid gap-2 md:grid-cols-3">
-          <input name="patientId" required placeholder="Patient ID" className="field" />
+          <input name="patientId" required inputMode="numeric" placeholder="Patient ID" className="field" />
           <input name="reportType" required placeholder="Report Type" className="field" />
           <input name="reportName" required placeholder="Report Name" className="field" />
           <input name="reportDate" required type="date" className="field" />
@@ -93,6 +104,7 @@ export default async function ReportsPage({
             name="patientId"
             defaultValue={patientId || ""}
             placeholder="Filter by patient ID"
+            inputMode="numeric"
             className="field max-w-sm"
           />
           <button className="btn btn-secondary">Filter</button>
@@ -101,10 +113,16 @@ export default async function ReportsPage({
         <div className="space-y-3">
           {reports.map((r) => (
             <div key={r.reportId} className="record-card text-sm">
-              <p className="mb-3 font-bold text-[#19332c]">
-                <span className="text-[#0f8f72]">#{r.reportId}</span> {r.patient.name} - {r.reportType} / {r.reportName} (
-                {r.reportDate.toISOString().slice(0, 10)})
-              </p>
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <p className="font-bold text-[#19332c]">
+                  <span className="text-[#0f8f72]">#{r.reportId}</span> {r.patient.name} / {r.reportType} / {r.reportName} (
+                  {r.reportDate.toISOString().slice(0, 10)})
+                </p>
+                <StatusPill
+                  label={r.status}
+                  tone={r.status === "Critical" ? "coral" : r.status === "Reviewed" ? "green" : r.status === "Received" ? "blue" : "gold"}
+                />
+              </div>
               <form action={updateReport} className="grid gap-2 md:grid-cols-3">
                 <input type="hidden" name="reportId" value={r.reportId} />
                 <select name="status" defaultValue={r.status} className="field text-sm">

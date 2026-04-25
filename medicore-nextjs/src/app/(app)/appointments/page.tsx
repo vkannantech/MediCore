@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard } from "@/components/ui";
+import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 const DISEASE_MAP: Record<string, string> = {
   fever: "General",
@@ -68,7 +68,7 @@ export default async function AppointmentsPage({
     revalidatePath("/dashboard");
   }
 
-  const [doctors, appointments] = await Promise.all([
+  const [doctors, appointments, emergencyCount, completedCount] = await Promise.all([
     prisma.doctor.findMany({
       where: specialization ? { specialization: { contains: specialization } } : undefined,
       orderBy: { doctorId: "asc" },
@@ -77,6 +77,8 @@ export default async function AppointmentsPage({
       include: { patient: true, doctor: true },
       orderBy: { appointmentId: "desc" },
     }),
+    prisma.appointment.count({ where: { status: "Emergency" } }),
+    prisma.appointment.count({ where: { status: "Completed" } }),
   ]);
 
   return (
@@ -86,6 +88,11 @@ export default async function AppointmentsPage({
         title="Appointment Management"
         description="Book visits, use symptom-based specialization hints, and update appointment progress."
       />
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard label="Visible Doctors" value={doctors.length} tone="blue" icon="doctors" />
+        <StatCard label="Emergency Queue" value={emergencyCount} tone="coral" icon="calendar" />
+        <StatCard label="Completed Visits" value={completedCount} tone="green" icon="records" />
+      </div>
 
       <SectionCard title="Book Appointment" subtitle="Use symptom to auto-suggest specialization">
         <form method="get" className="mb-3 grid gap-2 md:grid-cols-[1fr_auto]">
@@ -103,8 +110,8 @@ export default async function AppointmentsPage({
           </p>
         ) : null}
         <form action={addAppointment} className="grid gap-2 md:grid-cols-5">
-          <input name="patientId" required placeholder="Patient ID" className="field" />
-          <select name="doctorId" className="field">
+          <input name="patientId" required inputMode="numeric" placeholder="Patient ID" className="field" />
+          <select name="doctorId" required className="field">
             {doctors.map((d) => (
               <option key={d.doctorId} value={d.doctorId}>
                 {d.doctorId} - {d.name} ({d.specialization})
@@ -126,12 +133,20 @@ export default async function AppointmentsPage({
         <div className="space-y-3">
           {appointments.map((a) => (
             <div key={a.appointmentId} className="record-card text-sm">
-              <p className="font-bold text-[#19332c]">
-                <span className="text-[#0f8f72]">#{a.appointmentId}</span> {a.patient.name}
-              </p>
-              <p className="mt-1 text-[#61736c]">
-                {a.doctor.name} ({a.doctor.specialization}) on {a.date.toISOString().slice(0, 10)}
-              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-black text-[#19332c]">
+                    <span className="text-[#0f8f72]">#{a.appointmentId}</span> {a.patient.name}
+                  </p>
+                  <p className="mt-1 text-[#61736c]">
+                    {a.doctor.name} / {a.doctor.specialization ?? "General"} / {a.date.toISOString().slice(0, 10)}
+                  </p>
+                </div>
+                <StatusPill
+                  label={a.status ?? "Normal"}
+                  tone={a.status === "Emergency" ? "coral" : a.status === "Completed" ? "green" : "blue"}
+                />
+              </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <form action={updateStatus} className="flex flex-wrap gap-2">
                   <input type="hidden" name="appointmentId" value={a.appointmentId} />
