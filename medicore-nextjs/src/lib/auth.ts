@@ -5,7 +5,18 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "medicore_session";
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "change-me");
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production" && (!secret || secret === "change-me" || secret.length < 32)) {
+    throw new Error("JWT_SECRET must be set to a strong value in production.");
+  }
+
+  return new TextEncoder().encode(secret || "change-me");
+}
+
+const JWT_SECRET = getJwtSecret();
 export type AppRole = "ADMIN" | "USER";
 
 function normalizeRole(role: string | null | undefined): AppRole {
@@ -39,7 +50,7 @@ export async function createSession(payload: SessionPayload) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/",
   });
 }
@@ -73,7 +84,8 @@ export async function requireSession(requiredRole?: AppRole) {
 }
 
 export async function login(username: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { username } });
+  const normalizedUsername = username.trim();
+  const user = await prisma.user.findUnique({ where: { username: normalizedUsername } });
   if (!user) return { ok: false as const, message: "Invalid username or password." };
 
   let ok = await verifyPassword(password, user.password);
@@ -86,27 +98,53 @@ export async function login(username: string, password: string) {
   }
   if (!ok) return { ok: false as const, message: "Invalid username or password." };
 
+  const role = normalizeRole(user.role);
+  if (role === "USER" && !user.patientId) {
+    return { ok: false as const, message: "This user account is not linked to a patient profile. Ask an administrator to link it." };
+  }
+
   await createSession({
     userId: user.id,
     username: user.username,
-    role: normalizeRole(user.role),
+    role,
     patientId: user.patientId ?? null,
   });
 
   return { ok: true as const, user };
 }
 
-export async function signup(username: string, password: string) {
+export async function signup(input: {
+  username: string;
+  password: string;
+  name: string;
+  age: number | null;
+  gender: string;
+  phone: string;
+}) {
+  const username = input.username.trim();
   const exists = await prisma.user.findUnique({ where: { username } });
   if (exists) return { ok: false as const, message: "Username already exists." };
 
-  const hashed = await hashPassword(password);
-  await prisma.user.create({
-    data: {
-      username,
-      password: hashed,
-      role: "USER",
-    },
+  const hashed = await hashPassword(input.password);
+  await prisma.$transaction(async (tx) => {
+    const patient = await tx.patient.create({
+      data: {
+        name: input.name.trim(),
+        age: input.age,
+        gender: input.gender,
+        phone: input.phone.trim(),
+      },
+    });
+
+    await tx.user.create({
+      data: {
+        username,
+        password: hashed,
+        role: "USER",
+        patientId: patient.patientId,
+      },
+    });
   });
+
   return { ok: true as const };
 }

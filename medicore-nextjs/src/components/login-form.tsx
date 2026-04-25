@@ -16,6 +16,8 @@ export function LoginForm() {
         <label className="mb-1 block text-sm font-bold text-[#31534a]">Username</label>
         <input
           name="username"
+          required
+          autoComplete="username"
           className="field"
           placeholder="admin"
         />
@@ -25,6 +27,8 @@ export function LoginForm() {
         <input
           name="password"
           type="password"
+          required
+          autoComplete="current-password"
           className="field"
           placeholder="Password"
         />

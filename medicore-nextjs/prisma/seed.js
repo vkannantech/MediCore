@@ -8,7 +8,18 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
 }
 
-const adapterUrl = process.env.DATABASE_URL.replace(/^mysql:\/\//, "mariadb://");
+function buildAdapterUrl(url) {
+  const normalized = url.replace(/^mysql:\/\//, "mariadb://");
+  const parsed = new URL(normalized);
+
+  if (!parsed.searchParams.has("allowPublicKeyRetrieval")) {
+    parsed.searchParams.set("allowPublicKeyRetrieval", "true");
+  }
+
+  return parsed.toString();
+}
+
+const adapterUrl = buildAdapterUrl(process.env.DATABASE_URL);
 const adapter = new PrismaMariaDb(adapterUrl);
 const prisma = new PrismaClient({ adapter });
 
@@ -16,9 +27,33 @@ async function main() {
   const adminPassword = await bcrypt.hash("1234", 10);
   const staffPassword = await bcrypt.hash("staff123", 10);
 
+  const patients = [
+    { name: "Kannan V", age: 20, gender: "Male", phone: "9876543210" },
+    { name: "Priya S", age: 35, gender: "Female", phone: "9123456789" },
+    { name: "Raju M", age: 55, gender: "Male", phone: "9988776655" },
+  ];
+
+  for (const p of patients) {
+    const existing = await prisma.patient.findFirst({ where: { name: p.name, phone: p.phone } });
+    if (!existing) await prisma.patient.create({ data: p });
+  }
+
+  const existingStaff = await prisma.user.findUnique({ where: { username: "staff" } });
+  const staffPatient =
+    (existingStaff?.patientId
+      ? await prisma.patient.findUnique({ where: { patientId: existingStaff.patientId } })
+      : null) ??
+    (await prisma.patient.findFirst({
+      where: { users: { none: {} } },
+      orderBy: { patientId: "asc" },
+    })) ??
+    (await prisma.patient.create({
+      data: { name: "Demo Patient", age: 30, gender: "Other", phone: "9000000000" },
+    }));
+
   await prisma.user.upsert({
     where: { username: "admin" },
-    update: { role: "ADMIN" },
+    update: { password: adminPassword, role: "ADMIN" },
     create: {
       username: "admin",
       password: adminPassword,
@@ -28,11 +63,12 @@ async function main() {
 
   await prisma.user.upsert({
     where: { username: "staff" },
-    update: {},
+    update: { password: staffPassword, role: "USER", patientId: staffPatient.patientId },
     create: {
       username: "staff",
       password: staffPassword,
       role: "USER",
+      patientId: staffPatient.patientId,
     },
   });
 
@@ -52,16 +88,6 @@ async function main() {
     if (!existing) await prisma.doctor.create({ data: doc });
   }
 
-  const patients = [
-    { name: "Kannan V", age: 20, gender: "Male", phone: "9876543210" },
-    { name: "Priya S", age: 35, gender: "Female", phone: "9123456789" },
-    { name: "Raju M", age: 55, gender: "Male", phone: "9988776655" },
-  ];
-
-  for (const p of patients) {
-    const existing = await prisma.patient.findFirst({ where: { name: p.name, phone: p.phone } });
-    if (!existing) await prisma.patient.create({ data: p });
-  }
 }
 
 main()

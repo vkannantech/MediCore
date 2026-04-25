@@ -8,7 +8,20 @@ if (!connectionUrl) {
   throw new Error("DATABASE_URL is not set");
 }
 
-const adapterUrl = connectionUrl.replace(/^mysql:\/\//, "mariadb://");
+function buildAdapterUrl(url: string) {
+  const normalized = url.replace(/^mysql:\/\//, "mariadb://");
+  const parsed = new URL(normalized);
+
+  // MySQL 8 often uses caching_sha2_password locally, which needs either TLS
+  // or explicit public-key retrieval support when connecting without SSL.
+  if (!parsed.searchParams.has("allowPublicKeyRetrieval")) {
+    parsed.searchParams.set("allowPublicKeyRetrieval", "true");
+  }
+
+  return parsed.toString();
+}
+
+const adapterUrl = buildAdapterUrl(connectionUrl);
 const adapter = new PrismaMariaDb(adapterUrl);
 
 export const prisma =

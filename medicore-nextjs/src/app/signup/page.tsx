@@ -10,7 +10,7 @@ export default function SignupPage() {
           <BrandMark />
           <p className="mt-8 text-sm font-black uppercase tracking-normal text-[#0f8f72]">Patient access</p>
           <h1 className="mt-2 text-3xl font-black text-[#19332c]">Create Account</h1>
-          <p className="mb-6 mt-2 text-sm leading-6 text-[#61736c]">New accounts are created as normal users.</p>
+          <p className="mb-6 mt-2 text-sm leading-6 text-[#61736c]">Create a patient profile and secure portal login together.</p>
           <SignupForm />
         </section>
         <section className="max-w-2xl">
@@ -19,7 +19,7 @@ export default function SignupPage() {
             Patients can see their own visits, bills, records, and reports.
           </h2>
           <p className="mt-5 text-base leading-8 text-[#61736c]">
-            Staff can link this account to a patient profile after registration.
+            Your account is linked to your patient profile immediately after registration.
           </p>
           <Image
             src="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=1200&q=80"
