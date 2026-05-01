@@ -137,8 +137,8 @@ CALL add_column_if_missing('users', 'patient_id', 'INT UNIQUE NULL');
 UPDATE users SET role = 'ADMIN' WHERE username = 'admin';
 UPDATE users SET role = 'USER' WHERE username <> 'admin' AND (role IS NULL OR role = '');
 
--- Seed / sync data aligned with the Next.js app.
--- Passwords are bcrypt hashes because the app never authenticates plain text in production.
+-- Seed data for the Java Swing app.
+-- Java authentication compares plain-text passwords from the users table.
 -- Admin: admin / 1234
 -- Patient users: username / Medi@username
 
@@ -164,23 +164,23 @@ SET @raju_id = (SELECT patient_id FROM patient WHERE name = 'Raju M' AND phone =
 SET @staff_patient_id = (SELECT patient_id FROM patient WHERE name = 'Demo Staff Patient' AND phone = '9000000000' ORDER BY patient_id LIMIT 1);
 
 INSERT INTO users (username, password, role, patient_id) VALUES
-('admin', '$2b$10$OkFT./XlHWgaXvKaKmLVXuLaXcBL0Ur1J7tTCh9wu07aTORzfoOHi', 'ADMIN', NULL)
+('admin', '1234', 'ADMIN', NULL)
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = 'ADMIN', patient_id = NULL;
 
 INSERT INTO users (username, password, role, patient_id) VALUES
-('staff', '$2b$10$f6X/jYgl0oxNrsec96IuAe3ZryAqfbwfOzlB1IfjvNmYqFHOxSESC', 'USER', @staff_patient_id)
+('staff', '1234', 'USER', @staff_patient_id)
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = 'USER', patient_id = VALUES(patient_id);
 
 INSERT INTO users (username, password, role, patient_id) VALUES
-('kannanv1', '$2b$10$3Evf2UikYO9kHMYwE1aCQuZiJErqboSXV.vnMSjC0TmSkj1B/tcba', 'USER', @kannan_id)
+('kannanv1', 'Medi@kannanv1', 'USER', @kannan_id)
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = 'USER', patient_id = VALUES(patient_id);
 
 INSERT INTO users (username, password, role, patient_id) VALUES
-('priyas2', '$2b$10$acvrMXiF/U6UxTrf7LbpSO.5kVv/Y7mABwtgdi5AdNXAgMchjdu/e', 'USER', @priya_id)
+('priyas2', 'Medi@priyas2', 'USER', @priya_id)
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = 'USER', patient_id = VALUES(patient_id);
 
 INSERT INTO users (username, password, role, patient_id) VALUES
-('rajum3', '$2b$10$8usT//OHMIGoBQ1mrGmZfur7TGhww.uEQP5Hgk9LseUJC01R11zPa', 'USER', @raju_id)
+('rajum3', 'Medi@rajum3', 'USER', @raju_id)
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = 'USER', patient_id = VALUES(patient_id);
 
 INSERT INTO doctor (name, specialization, availability)
