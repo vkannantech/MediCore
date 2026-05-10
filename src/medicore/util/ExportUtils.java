@@ -9,6 +9,7 @@ import org.openpdf.text.pdf.PdfPTable;
 import org.openpdf.text.pdf.PdfWriter;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
 import java.awt.*;
 import java.awt.print.PrinterException;
@@ -24,8 +25,9 @@ public final class ExportUtils {
 
     public static void printTable(JTable table, String title, Component parent) {
         try {
-            boolean done = table.print(JTable.PrintMode.FIT_WIDTH,
-                    new java.text.MessageFormat(title),
+            JTable exportTable = scopedTable(table);
+            boolean done = exportTable.print(JTable.PrintMode.FIT_WIDTH,
+                    new java.text.MessageFormat(title + " - " + getExportScopeLabel(table)),
                     new java.text.MessageFormat("Page {0}"));
             if (!done) {
                 JOptionPane.showMessageDialog(parent, "Print cancelled.", "Print", JOptionPane.INFORMATION_MESSAGE);
@@ -54,7 +56,8 @@ public final class ExportUtils {
             document.add(new Paragraph(" "));
         }
 
-        TableModel model = table.getModel();
+        JTable exportTable = scopedTable(table);
+        TableModel model = exportTable.getModel();
         PdfPTable pdfTable = new PdfPTable(model.getColumnCount());
         pdfTable.setWidthPercentage(100f);
 
@@ -127,6 +130,18 @@ public final class ExportUtils {
         }
     }
 
+    public static int getExportRowCount(JTable table) {
+        return table.getSelectedRowCount() > 0 ? table.getSelectedRowCount() : table.getRowCount();
+    }
+
+    public static String getExportScopeLabel(JTable table) {
+        int selected = table.getSelectedRowCount();
+        if (selected > 0) {
+            return selected == 1 ? "Selected row" : "Selected rows: " + selected;
+        }
+        return "All visible rows: " + table.getRowCount();
+    }
+
     public record SectionTable(String title, String[] columns, List<String[]> rows) {}
 
     private static String sanitize(String title) {
@@ -135,5 +150,32 @@ public final class ExportUtils {
 
     private static String timestamp() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+    }
+
+    private static JTable scopedTable(JTable source) {
+        DefaultTableModel model = new DefaultTableModel();
+        for (int c = 0; c < source.getColumnCount(); c++) {
+            model.addColumn(source.getColumnName(c));
+        }
+
+        int[] viewRows = source.getSelectedRows();
+        if (viewRows.length == 0) {
+            viewRows = new int[source.getRowCount()];
+            for (int i = 0; i < viewRows.length; i++) {
+                viewRows[i] = i;
+            }
+        }
+
+        for (int viewRow : viewRows) {
+            Object[] values = new Object[source.getColumnCount()];
+            for (int viewCol = 0; viewCol < source.getColumnCount(); viewCol++) {
+                values[viewCol] = source.getValueAt(viewRow, viewCol);
+            }
+            model.addRow(values);
+        }
+
+        JTable table = new JTable(model);
+        table.setSize(source.getSize());
+        return table;
     }
 }

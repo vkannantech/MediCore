@@ -51,22 +51,19 @@ public class PatientFrame extends JFrame {
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(14, 14, 14, 14));
 
         // Header
-        JPanel header = makeHeader("👤  Patient Management");
+        JPanel header = makeHeader("Patient Management");
         root.add(header, BorderLayout.NORTH);
 
         // Tabs
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setBackground(CARD);
-        tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("➕  Add Patient", UIUtils.wrapScrollable(buildAddPanel(), BG));
-        tabs.addTab("🔍  View / Search", buildViewPanel());
-        tabs.addTab("🧪  Test Reports",  UIUtils.wrapScrollable(buildReportPanel(), BG));
+        UIUtils.styleTabs(tabs);
+        tabs.addTab("Add Patient", UIUtils.wrapScrollable(buildAddPanel(), BG));
+        tabs.addTab("View / Search", buildViewPanel());
+        tabs.addTab("Test Reports",  UIUtils.wrapScrollable(buildReportPanel(), BG));
         tabs.addChangeListener(e -> {
             AsyncUI.load(this, dao::getAllPatients, this::refreshTable);
             AsyncUI.load(this, reportDAO::getAllReports, this::refreshReportTable);
@@ -77,7 +74,7 @@ public class PatientFrame extends JFrame {
     }
 
     private JPanel buildAddPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
+        JPanel p = UIUtils.contentPanel(new GridBagLayout());
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(30, 60, 30, 60));
 
@@ -102,7 +99,7 @@ public class PatientFrame extends JFrame {
     }
 
     private JPanel buildViewPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 10));
+        JPanel p = UIUtils.contentPanel(new BorderLayout(0, 14));
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(15, 20, 15, 20));
 
@@ -132,7 +129,7 @@ public class PatientFrame extends JFrame {
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
         table = new JTable(tableModel);
         styleTable(table);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -153,11 +150,11 @@ public class PatientFrame extends JFrame {
     }
 
     private JPanel buildReportPanel() {
-        JPanel root = new JPanel(new BorderLayout(0, 12));
+        JPanel root = UIUtils.contentPanel(new BorderLayout(16, 0));
         root.setBackground(BG);
         root.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        JPanel form = new JPanel(new GridBagLayout());
+        JPanel form = UIUtils.contentPanel(new GridBagLayout());
         form.setBackground(BG);
         GridBagConstraints g = new GridBagConstraints();
         g.fill = GridBagConstraints.HORIZONTAL;
@@ -183,7 +180,7 @@ public class PatientFrame extends JFrame {
         g.gridy = 11;
         txtReportSummary = new JTextArea(4, 20);
         styleTextArea(txtReportSummary);
-        form.add(new JScrollPane(txtReportSummary), g);
+        form.add(UIUtils.scrollPane(txtReportSummary), g);
         g.gridy = 12; form.add(label("Attachment Path"), g);
         g.gridy = 13; txtAttachmentPath = input(); form.add(txtAttachmentPath, g);
         g.gridy = 14; g.insets = new Insets(14, 0, 0, 0);
@@ -191,7 +188,7 @@ public class PatientFrame extends JFrame {
 
         root.add(form, BorderLayout.WEST);
 
-        JPanel right = new JPanel(new BorderLayout(0, 10));
+        JPanel right = UIUtils.contentPanel(new BorderLayout(0, 14));
         right.setBackground(BG);
         JPanel topBar = new JPanel(new BorderLayout(8, 0));
         topBar.setOpaque(false);
@@ -225,7 +222,7 @@ public class PatientFrame extends JFrame {
         reportTable = new JTable(reportTableModel);
         styleTable(reportTable);
         AsyncUI.load(this, reportDAO::getAllReports, this::refreshReportTable);
-        right.add(new JScrollPane(reportTable), BorderLayout.CENTER);
+        right.add(UIUtils.scrollPane(reportTable), BorderLayout.CENTER);
         root.add(right, BorderLayout.CENTER);
 
         return root;
@@ -268,7 +265,10 @@ public class PatientFrame extends JFrame {
     private void openProfile() {
         int patientId = getSelectedPatientId();
         if (patientId < 0) return;
-        new PatientProfileFrame(patientId).setVisible(true);
+        PatientProfileFrame profile = new PatientProfileFrame(patientId);
+        if (!UIUtils.openInCurrentWindow(profile.getTitle(), profile.getContentPane())) {
+            profile.setVisible(true);
+        }
     }
 
     private void editSelectedPatient() {
@@ -290,7 +290,7 @@ public class PatientFrame extends JFrame {
         styleCombo(genderBox);
         genderBox.setSelectedItem(patient[3]);
 
-        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 8));
+        JPanel panel = UIUtils.dialogPanel(new GridLayout(0, 1, 0, 8));
         panel.add(label("Full Name")); panel.add(nameField);
         panel.add(label("Age")); panel.add(ageField);
         panel.add(label("Gender")); panel.add(genderBox);
@@ -349,8 +349,8 @@ public class PatientFrame extends JFrame {
                 "This patient will only see the user dashboard, not admin panels."
         );
         details.setEditable(false);
-        details.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        JOptionPane.showMessageDialog(this, new JScrollPane(details), "Patient Login Created",
+        UIUtils.styleTextArea(details);
+        JOptionPane.showMessageDialog(this, UIUtils.scrollPane(details), "Patient Login Created",
                 JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -360,7 +360,8 @@ public class PatientFrame extends JFrame {
             warn("Select a patient from the table first.");
             return -1;
         }
-        return Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int modelRow = table.convertRowIndexToModel(row);
+        return Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
     }
 
     private void saveReport() {
@@ -412,7 +413,8 @@ public class PatientFrame extends JFrame {
             warn("Select a report first.");
             return;
         }
-        int reportId = Integer.parseInt(String.valueOf(reportTableModel.getValueAt(row, 0)));
+        int modelRow = reportTable.convertRowIndexToModel(row);
+        int reportId = Integer.parseInt(String.valueOf(reportTableModel.getValueAt(modelRow, 0)));
         int confirm = JOptionPane.showConfirmDialog(this, "Delete report #" + reportId + "?",
                 "Delete Report", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -430,7 +432,7 @@ public class PatientFrame extends JFrame {
             File file = ExportUtils.exportTableToPdf(
                     "patient-test-reports",
                     reportTable,
-                    Arrays.asList("MediCore Patient Test Reports", "Rows: " + reportTableModel.getRowCount())
+                    Arrays.asList("MediCore Patient Test Reports", ExportUtils.getExportScopeLabel(reportTable))
             );
             ExportUtils.openFile(file, this);
         } catch (Exception e) {
@@ -444,52 +446,28 @@ public class PatientFrame extends JFrame {
     // ── UI Helpers ──────────────────────────────────────────────────
 
     private JPanel makeHeader(String title) {
-        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        h.setBackground(new Color(17, 24, 39));
-        JLabel lbl = new JLabel(title);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lbl.setForeground(TEXT);
-        h.add(lbl);
-        return h;
+        return UIUtils.moduleHeader(title, "Register patients, review profiles, and manage lab reports.", ACCENT2);
     }
     private JLabel label(String t) { JLabel l = new JLabel(t); l.setForeground(MUTED); l.setFont(new Font("Segoe UI", Font.PLAIN, 13)); return l; }
     private JTextField input() {
         JTextField tf = new JTextField();
-        tf.setBackground(INPUT_BG); tf.setForeground(TEXT); tf.setCaretColor(TEXT);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_C), new EmptyBorder(7, 10, 7, 10)));
-        tf.setPreferredSize(new Dimension(0, 38));
+        UIUtils.styleTextField(tf);
         return tf;
     }
     private void styleCombo(JComboBox<String> c) {
-        c.setBackground(INPUT_BG); c.setForeground(TEXT);
-        c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        c.setPreferredSize(new Dimension(0, 38));
+        UIUtils.styleCombo(c);
     }
     private void styleTextArea(JTextArea ta) {
-        ta.setBackground(INPUT_BG); ta.setForeground(TEXT); ta.setCaretColor(TEXT);
-        ta.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        ta.setLineWrap(true); ta.setWrapStyleWord(true);
-        ta.setBorder(new EmptyBorder(8, 10, 8, 10));
+        UIUtils.styleTextArea(ta);
     }
     private JButton actionButton(String txt, Color bg, java.awt.event.ActionListener al) {
-        JButton b = new JButton(txt) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.dispose(); super.paintComponent(g);
-            }
-        };
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
     }
     private JButton smallBtn(String txt, Color bg) {
-        JButton b = new JButton(txt);
-        b.setBackground(bg); b.setForeground(Color.WHITE);
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setFont(new Font("Segoe UI", Font.BOLD, 12));
         b.setFocusPainted(false); b.setBorderPainted(false);
         b.setPreferredSize(new Dimension(90, 35)); return b;
@@ -504,5 +482,6 @@ public class PatientFrame extends JFrame {
         t.setGridColor(BORDER_C);
         t.setSelectionBackground(ACCENT);
         t.setSelectionForeground(Color.WHITE);
+        UIUtils.polishTable(t);
     }
 }

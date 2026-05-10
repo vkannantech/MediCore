@@ -42,23 +42,21 @@ public class MedicalRecordFrame extends JFrame {
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG);
-        root.add(makeHeader("💊  Medical Records"), BorderLayout.NORTH);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(14, 14, 14, 14));
+        root.add(makeHeader("Medical Records"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setBackground(CARD); tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("➕  Add Record", UIUtils.wrapScrollable(buildAddPanel(), BG));
-        tabs.addTab("📋  View Records", buildViewPanel());
+        UIUtils.styleTabs(tabs);
+        tabs.addTab("Add Record", UIUtils.wrapScrollable(buildAddPanel(), BG));
+        tabs.addTab("View Records", buildViewPanel());
         tabs.addChangeListener(e -> reloadCurrentFilter());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
 
     private JPanel buildAddPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
+        JPanel p = UIUtils.contentPanel(new GridBagLayout());
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(25, 60, 25, 60));
         GridBagConstraints g = new GridBagConstraints();
@@ -69,11 +67,11 @@ public class MedicalRecordFrame extends JFrame {
 
         g.gridy = 2; p.add(label("Diagnosis"), g);
         g.gridy = 3; txtDiagnosis = new JTextArea(4, 30);
-        styleTextArea(txtDiagnosis); p.add(new JScrollPane(txtDiagnosis), g);
+        styleTextArea(txtDiagnosis); p.add(UIUtils.scrollPane(txtDiagnosis), g);
 
         g.gridy = 4; p.add(label("Prescription"), g);
         g.gridy = 5; txtPrescription = new JTextArea(4, 30);
-        styleTextArea(txtPrescription); p.add(new JScrollPane(txtPrescription), g);
+        styleTextArea(txtPrescription); p.add(UIUtils.scrollPane(txtPrescription), g);
 
         g.gridy = 6; g.insets = new Insets(18, 0, 0, 0);
         p.add(actionBtn("Save Record", ACCENT2, e -> doAdd()), g);
@@ -81,7 +79,7 @@ public class MedicalRecordFrame extends JFrame {
     }
 
     private JPanel buildViewPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 10));
+        JPanel p = UIUtils.contentPanel(new BorderLayout(0, 14));
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(15, 20, 15, 20));
 
@@ -112,7 +110,7 @@ public class MedicalRecordFrame extends JFrame {
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
         table = new JTable(tableModel);
         styleTable(table);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
         return p;
     }
 
@@ -138,16 +136,17 @@ public class MedicalRecordFrame extends JFrame {
     private void editSelectedRecord() {
         int row = table.getSelectedRow();
         if (row < 0) { warn("Select a medical record first."); return; }
-        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
-        JTextArea diagnosisArea = new JTextArea(String.valueOf(tableModel.getValueAt(row, 2)), 4, 20);
-        JTextArea prescriptionArea = new JTextArea(String.valueOf(tableModel.getValueAt(row, 3)), 4, 20);
+        int modelRow = table.convertRowIndexToModel(row);
+        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
+        JTextArea diagnosisArea = new JTextArea(String.valueOf(tableModel.getValueAt(modelRow, 2)), 4, 20);
+        JTextArea prescriptionArea = new JTextArea(String.valueOf(tableModel.getValueAt(modelRow, 3)), 4, 20);
         styleTextArea(diagnosisArea);
         styleTextArea(prescriptionArea);
-        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 8));
+        JPanel panel = UIUtils.dialogPanel(new GridLayout(0, 1, 0, 8));
         panel.add(label("Diagnosis"));
-        panel.add(new JScrollPane(diagnosisArea));
+        panel.add(UIUtils.scrollPane(diagnosisArea));
         panel.add(label("Prescription"));
-        panel.add(new JScrollPane(prescriptionArea));
+        panel.add(UIUtils.scrollPane(prescriptionArea));
 
         int result = JOptionPane.showConfirmDialog(this, panel, "Edit Record #" + recordId,
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
@@ -163,7 +162,8 @@ public class MedicalRecordFrame extends JFrame {
     private void deleteSelectedRecord() {
         int row = table.getSelectedRow();
         if (row < 0) { warn("Select a medical record first."); return; }
-        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int modelRow = table.convertRowIndexToModel(row);
+        int recordId = Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
         int confirm = JOptionPane.showConfirmDialog(this, "Delete record #" + recordId + "?",
                 "Delete Medical Record", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -195,7 +195,7 @@ public class MedicalRecordFrame extends JFrame {
             File file = ExportUtils.exportTableToPdf(
                     "medical-records",
                     table,
-                    Arrays.asList("MediCore Medical Records", "Rows: " + tableModel.getRowCount())
+                    Arrays.asList("MediCore Medical Records", ExportUtils.getExportScopeLabel(table))
             );
             ExportUtils.openFile(file, this);
         } catch (Exception e) {
@@ -207,37 +207,25 @@ public class MedicalRecordFrame extends JFrame {
     private void info(String m)  { JOptionPane.showMessageDialog(this, m, "Success", JOptionPane.INFORMATION_MESSAGE); }
 
     private JPanel makeHeader(String t) {
-        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15)); h.setBackground(new Color(17, 24, 39));
-        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 18)); l.setForeground(TEXT); h.add(l); return h;
+        return UIUtils.moduleHeader(t, "Store diagnosis, prescriptions, and clinical history with clarity.", ACCENT2);
     }
     private JLabel label(String t) { JLabel l = new JLabel(t); l.setForeground(MUTED); l.setFont(new Font("Segoe UI", Font.PLAIN, 13)); return l; }
     private JTextField input() {
         JTextField tf = new JTextField(); tf.setBackground(INPUT_BG); tf.setForeground(TEXT); tf.setCaretColor(TEXT);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_C), new EmptyBorder(7, 10, 7, 10)));
-        tf.setPreferredSize(new Dimension(0, 38)); return tf;
+        UIUtils.styleTextField(tf);
+        return tf;
     }
     private void styleTextArea(JTextArea ta) {
-        ta.setBackground(INPUT_BG); ta.setForeground(TEXT); ta.setCaretColor(TEXT);
-        ta.setFont(new Font("Segoe UI", Font.PLAIN, 13)); ta.setLineWrap(true); ta.setWrapStyleWord(true);
-        ta.setBorder(new EmptyBorder(8, 10, 8, 10));
+        UIUtils.styleTextArea(ta);
     }
     private JButton actionBtn(String txt, Color bg, java.awt.event.ActionListener al) {
-        JButton b = new JButton(txt) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); g2.dispose(); super.paintComponent(g);
-            }
-        };
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
     }
     private JButton smallBtn(String txt, Color bg) {
-        JButton b = new JButton(txt); b.setBackground(bg); b.setForeground(Color.WHITE);
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setFont(new Font("Segoe UI", Font.BOLD, 12)); b.setFocusPainted(false); b.setBorderPainted(false);
         b.setPreferredSize(new Dimension(140, 35)); return b;
     }
@@ -246,5 +234,6 @@ public class MedicalRecordFrame extends JFrame {
         t.setRowHeight(30); t.getTableHeader().setBackground(new Color(17, 24, 39));
         t.getTableHeader().setForeground(new Color(6, 182, 212)); t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         t.setGridColor(BORDER_C); t.setSelectionBackground(ACCENT); t.setSelectionForeground(Color.WHITE);
+        UIUtils.polishTable(t);
     }
 }

@@ -50,8 +50,7 @@ public class PatientProfileFrame extends JFrame {
             return;
         }
 
-        JPanel root = new JPanel(new BorderLayout(0, 14));
-        root.setBackground(BG);
+        JPanel root = UIUtils.appBackground();
         root.setBorder(new EmptyBorder(16, 16, 16, 16));
 
         root.add(buildHeader(patient), BorderLayout.NORTH);
@@ -61,11 +60,11 @@ public class PatientProfileFrame extends JFrame {
     }
 
     private JPanel buildToolbar() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        JPanel panel = UIUtils.contentPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(0, 0, 10, 0));
-        JButton exportPdf = new JButton("Export Full PDF");
-        JButton printProfile = new JButton("Print Appointments");
+        JButton exportPdf = UIUtils.pillButton("Export Full PDF", ACCENT);
+        JButton printProfile = UIUtils.ghostButton("Print Appointments", UIUtils.CYAN);
         exportPdf.addActionListener(e -> exportFullProfilePdf());
         printProfile.addActionListener(e -> {
             JTable apptTable = buildTable(new String[] {"ID", "Doctor", "Specialization", "Date", "Status"},
@@ -81,8 +80,7 @@ public class PatientProfileFrame extends JFrame {
         JPanel wrapper = new JPanel(new BorderLayout(14, 0));
         wrapper.setOpaque(false);
 
-        JPanel profile = new JPanel(new GridLayout(2, 3, 12, 10));
-        profile.setBackground(CARD);
+        JPanel profile = UIUtils.contentPanel(new GridLayout(2, 3, 12, 10));
         profile.setBorder(new EmptyBorder(18, 18, 18, 18));
         profile.add(info("Patient ID", patient[0]));
         profile.add(info("Name", patient[1]));
@@ -92,8 +90,7 @@ public class PatientProfileFrame extends JFrame {
         profile.add(info("Lab Reports", String.valueOf(reportDAO.getReportsByPatient(patientId).size())));
 
         String[] billingSummary = billingDAO.getBillingSummaryByPatient(patientId);
-        JPanel finance = new JPanel(new GridLayout(2, 2, 10, 10));
-        finance.setBackground(CARD);
+        JPanel finance = UIUtils.contentPanel(new GridLayout(2, 2, 10, 10));
         finance.setBorder(new EmptyBorder(18, 18, 18, 18));
         finance.add(info("Bills", billingSummary[0]));
         finance.add(info("Total", "Rs. " + billingSummary[1]));
@@ -107,9 +104,7 @@ public class PatientProfileFrame extends JFrame {
 
     private JTabbedPane buildTabs() {
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setBackground(CARD);
-        tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        UIUtils.styleTabs(tabs);
         tabs.addTab("Appointments", buildTablePanel(
                 new String[] {"ID", "Doctor", "Specialization", "Date", "Status"},
                 appointmentDAO.getAppointmentsByPatient(patientId)));
@@ -126,12 +121,11 @@ public class PatientProfileFrame extends JFrame {
     }
 
     private JPanel buildTablePanel(String[] columns, List<String[]> rows) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BG);
+        JPanel panel = UIUtils.contentPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(12, 12, 12, 12));
         JTable table = buildTable(columns, rows);
         styleTable(table);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
         return panel;
     }
 
@@ -198,5 +192,6 @@ public class PatientProfileFrame extends JFrame {
         t.getTableHeader().setBackground(new Color(17, 24, 39));
         t.getTableHeader().setForeground(new Color(6, 182, 212));
         t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        UIUtils.polishTable(t);
     }
 }

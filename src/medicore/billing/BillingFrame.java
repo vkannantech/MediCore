@@ -44,23 +44,21 @@ public class BillingFrame extends JFrame {
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG);
-        root.add(makeHeader("💳  Billing System"), BorderLayout.NORTH);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(14, 14, 14, 14));
+        root.add(makeHeader("Billing System"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setBackground(CARD); tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("🧾  Generate Bill", UIUtils.wrapScrollable(buildAddPanel(), BG));
-        tabs.addTab("📋  View Bills",    buildViewPanel());
+        UIUtils.styleTabs(tabs);
+        tabs.addTab("Generate Bill", UIUtils.wrapScrollable(buildAddPanel(), BG));
+        tabs.addTab("View Bills",    buildViewPanel());
         tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
 
     private JPanel buildAddPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
+        JPanel p = UIUtils.contentPanel(new GridBagLayout());
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(30, 80, 30, 80));
         GridBagConstraints g = new GridBagConstraints();
@@ -105,7 +103,7 @@ public class BillingFrame extends JFrame {
         g.gridy = 12;
         txtNotes = new JTextArea(3, 20);
         styleTextArea(txtNotes);
-        p.add(new JScrollPane(txtNotes), g);
+        p.add(UIUtils.scrollPane(txtNotes), g);
 
         g.gridy = 13; g.insets = new Insets(20, 0, 0, 0);
         p.add(actionBtn("Generate & Save Bill", GOLD, e -> doSave()), g);
@@ -113,13 +111,13 @@ public class BillingFrame extends JFrame {
     }
 
     private JPanel buildViewPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 10));
+        JPanel p = UIUtils.contentPanel(new BorderLayout(0, 14));
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(15, 20, 15, 20));
 
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bar.setOpaque(false);
-        JButton refresh = smallBtn("↻ Refresh", ACCENT);
+        JButton refresh = smallBtn("Refresh", ACCENT);
         JButton print = smallBtn("Print", new Color(16, 185, 129));
         JButton pdf = smallBtn("Export PDF", GOLD);
         refresh.addActionListener(e -> refreshTable());
@@ -134,7 +132,7 @@ public class BillingFrame extends JFrame {
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
         table = new JTable(tableModel);
         styleTable(table);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
         return p;
     }
 
@@ -170,7 +168,7 @@ public class BillingFrame extends JFrame {
             File file = ExportUtils.exportTableToPdf(
                     "billing-report",
                     table,
-                    Arrays.asList("MediCore Billing Report", "Rows: " + tableModel.getRowCount())
+                    Arrays.asList("MediCore Billing Report", ExportUtils.getExportScopeLabel(table))
             );
             ExportUtils.openFile(file, this);
         } catch (Exception e) {
@@ -182,41 +180,28 @@ public class BillingFrame extends JFrame {
     private void info(String m)  { JOptionPane.showMessageDialog(this, m, "Success", JOptionPane.INFORMATION_MESSAGE); }
 
     private JPanel makeHeader(String t) {
-        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15)); h.setBackground(new Color(17, 24, 39));
-        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 18)); l.setForeground(TEXT); h.add(l); return h;
+        return UIUtils.moduleHeader(t, "Create receipts, track payment status, and export billing records.", GOLD);
     }
     private JLabel label(String t) { JLabel l = new JLabel(t); l.setForeground(MUTED); l.setFont(new Font("Segoe UI", Font.PLAIN, 13)); return l; }
     private JTextField input() {
         JTextField tf = new JTextField(); tf.setBackground(INPUT_BG); tf.setForeground(TEXT); tf.setCaretColor(TEXT);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_C), new EmptyBorder(7, 10, 7, 10)));
-        tf.setPreferredSize(new Dimension(0, 38)); return tf;
+        UIUtils.styleTextField(tf);
+        return tf;
     }
     private JButton actionBtn(String txt, Color bg, java.awt.event.ActionListener al) {
-        JButton b = new JButton(txt) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); g2.dispose(); super.paintComponent(g);
-            }
-        };
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
     }
     private void styleCombo(JComboBox<String> c) {
-        c.setBackground(INPUT_BG); c.setForeground(TEXT); c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        c.setPreferredSize(new Dimension(0, 38));
+        UIUtils.styleCombo(c);
     }
     private void styleTextArea(JTextArea ta) {
-        ta.setBackground(INPUT_BG); ta.setForeground(TEXT); ta.setCaretColor(TEXT);
-        ta.setFont(new Font("Segoe UI", Font.PLAIN, 13)); ta.setLineWrap(true); ta.setWrapStyleWord(true);
-        ta.setBorder(new EmptyBorder(8, 10, 8, 10));
+        UIUtils.styleTextArea(ta);
     }
     private JButton smallBtn(String txt, Color bg) {
-        JButton b = new JButton(txt); b.setBackground(bg); b.setForeground(Color.WHITE);
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setFont(new Font("Segoe UI", Font.BOLD, 12)); b.setFocusPainted(false); b.setBorderPainted(false);
         b.setPreferredSize(new Dimension(100, 35)); return b;
     }
@@ -225,5 +210,6 @@ public class BillingFrame extends JFrame {
         t.setRowHeight(30); t.getTableHeader().setBackground(new Color(17, 24, 39));
         t.getTableHeader().setForeground(new Color(6, 182, 212)); t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         t.setGridColor(BORDER_C); t.setSelectionBackground(ACCENT); t.setSelectionForeground(Color.WHITE);
+        UIUtils.polishTable(t);
     }
 }

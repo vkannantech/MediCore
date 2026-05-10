@@ -73,23 +73,21 @@ public class AppointmentFrame extends JFrame {
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG);
-        root.add(makeHeader("📅  Appointment Management"), BorderLayout.NORTH);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(14, 14, 14, 14));
+        root.add(makeHeader("Appointment Management"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setBackground(CARD); tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("📝  Book Appointment",   UIUtils.wrapScrollable(buildBookPanel(), BG));
-        tabs.addTab("📋  All Appointments",   buildViewPanel());
+        UIUtils.styleTabs(tabs);
+        tabs.addTab("Book Appointment",   UIUtils.wrapScrollable(buildBookPanel(), BG));
+        tabs.addTab("All Appointments",   buildViewPanel());
         tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
 
     private JPanel buildBookPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
+        JPanel p = UIUtils.contentPanel(new GridBagLayout());
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(25, 60, 25, 60));
         GridBagConstraints g = new GridBagConstraints();
@@ -105,7 +103,7 @@ public class AppointmentFrame extends JFrame {
         JPanel diseaseRow = new JPanel(new BorderLayout(8, 0));
         diseaseRow.setOpaque(false);
         txtDisease = input();
-        JButton btnSuggest = smallBtn("🤖 Smart Suggest", ACCENT2);
+        JButton btnSuggest = smallBtn("Smart Suggest", ACCENT2);
         btnSuggest.addActionListener(e -> doSmartSuggest());
         diseaseRow.add(txtDisease, BorderLayout.CENTER);
         diseaseRow.add(btnSuggest, BorderLayout.EAST);
@@ -144,34 +142,40 @@ public class AppointmentFrame extends JFrame {
     }
 
     private JPanel buildViewPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 10));
+        JPanel p = UIUtils.contentPanel(new BorderLayout(0, 14));
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(15, 20, 15, 20));
 
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bar.setOpaque(false);
-        JButton refresh = smallBtn("↻ Refresh", ACCENT);
+        JButton refresh = smallBtn("Refresh", ACCENT);
         JButton print = smallBtn("Print", new Color(16, 185, 129));
         JButton pdf = smallBtn("Export PDF", new Color(245, 158, 11));
         refresh.addActionListener(e -> refreshTable());
         print.addActionListener(e -> ExportUtils.printTable(table, "Appointments", this));
         pdf.addActionListener(e -> exportAppointmentsPdf());
-        JButton btnUpdate = smallBtn("Update Status", ACCENT2);
-        JButton btnDelete = smallBtn("Delete", EMERG);
+        
+        JButton btnAccept = smallBtn("Accept", new Color(16, 185, 129));
+        JButton btnReject = smallBtn("Reject", new Color(239, 68, 68));
+        JButton btnUpdate = smallBtn("Status", ACCENT2);
+        
+        btnAccept.addActionListener(e -> quickUpdateStatus("Confirmed"));
+        btnReject.addActionListener(e -> quickUpdateStatus("Rejected"));
         btnUpdate.addActionListener(e -> updateSelectedAppointmentStatus());
-        btnDelete.addActionListener(e -> deleteSelectedAppointment());
+        
         bar.add(refresh);
         bar.add(print);
         bar.add(pdf);
+        bar.add(btnAccept);
+        bar.add(btnReject);
         bar.add(btnUpdate);
-        bar.add(btnDelete);
         p.add(bar, BorderLayout.NORTH);
 
         String[] cols = {"ID", "Patient", "Doctor", "Specialization", "Date", "Status"};
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
         table = new JTable(tableModel);
         styleTable(table);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
         return p;
     }
 
@@ -181,7 +185,7 @@ public class AppointmentFrame extends JFrame {
         for (Map.Entry<String, String> entry : DISEASE_MAP.entrySet()) {
             if (disease.contains(entry.getKey())) { matchedSpec = entry.getValue(); break; }
         }
-        lblSuggestion.setText("🤖 Recommended: " + matchedSpec);
+        lblSuggestion.setText("Recommended: " + matchedSpec);
         loadDoctorCombo(matchedSpec);
     }
 
@@ -224,7 +228,7 @@ public class AppointmentFrame extends JFrame {
             File file = ExportUtils.exportTableToPdf(
                     "appointments",
                     table,
-                    Arrays.asList("MediCore Appointment Report", "Rows: " + tableModel.getRowCount())
+                    Arrays.asList("MediCore Appointment Report", ExportUtils.getExportScopeLabel(table))
             );
             ExportUtils.openFile(file, this);
         } catch (Exception e) {
@@ -235,9 +239,10 @@ public class AppointmentFrame extends JFrame {
     private void updateSelectedAppointmentStatus() {
         int row = table.getSelectedRow();
         if (row < 0) { warn("Select an appointment first."); return; }
-        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
-        String current = String.valueOf(tableModel.getValueAt(row, 5));
-        JComboBox<String> statusBox = new JComboBox<>(new String[] {"Normal", "Emergency", "Confirmed", "Completed", "Cancelled"});
+        int modelRow = table.convertRowIndexToModel(row);
+        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
+        String current = String.valueOf(tableModel.getValueAt(modelRow, 5));
+        JComboBox<String> statusBox = new JComboBox<>(new String[] {"Pending Confirmation", "Normal", "Emergency", "Confirmed", "Completed", "Cancelled", "Rejected"});
         styleCombo(statusBox);
         statusBox.setSelectedItem(current);
         int result = JOptionPane.showConfirmDialog(this, statusBox, "Update Appointment Status",
@@ -251,10 +256,24 @@ public class AppointmentFrame extends JFrame {
         }
     }
 
+    private void quickUpdateStatus(String newStatus) {
+        int row = table.getSelectedRow();
+        if (row < 0) { warn("Select an appointment first."); return; }
+        int modelRow = table.convertRowIndexToModel(row);
+        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
+        if (apptDao.updateAppointmentStatus(id, newStatus)) {
+            info("Appointment " + newStatus + "!");
+            refreshTable();
+        } else {
+            warn("Failed to update appointment.");
+        }
+    }
+
     private void deleteSelectedAppointment() {
         int row = table.getSelectedRow();
         if (row < 0) { warn("Select an appointment first."); return; }
-        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int modelRow = table.convertRowIndexToModel(row);
+        int id = Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
         int confirm = JOptionPane.showConfirmDialog(this, "Delete appointment #" + id + "?",
                 "Delete Appointment", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -271,48 +290,36 @@ public class AppointmentFrame extends JFrame {
     private void info(String m)  { JOptionPane.showMessageDialog(this, m, "Success", JOptionPane.INFORMATION_MESSAGE); }
 
     private JPanel makeHeader(String t) {
-        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        h.setBackground(new Color(17, 24, 39));
-        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 18)); l.setForeground(TEXT); h.add(l); return h;
+        return UIUtils.moduleHeader(t, "Book visits, prioritize emergencies, and keep queues moving.", ACCENT2);
     }
     private JLabel label(String t) { JLabel l = new JLabel(t); l.setForeground(MUTED); l.setFont(new Font("Segoe UI", Font.PLAIN, 13)); return l; }
     private JTextField input() {
         JTextField tf = new JTextField();
-        tf.setBackground(INPUT_BG); tf.setForeground(TEXT); tf.setCaretColor(TEXT);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_C), new EmptyBorder(7, 10, 7, 10)));
-        tf.setPreferredSize(new Dimension(0, 38)); return tf;
+        UIUtils.styleTextField(tf);
+        return tf;
     }
     private void styleCombo(JComboBox<?> c) {
-        c.setBackground(INPUT_BG); c.setForeground(TEXT); c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        c.setPreferredSize(new Dimension(0, 38));
+        UIUtils.styleCombo(c);
     }
     private void styleRadio(JRadioButton r, Color c) {
         r.setForeground(c); r.setBackground(BG); r.setFont(new Font("Segoe UI", Font.BOLD, 13));
     }
     private JButton actionBtn(String txt, Color bg, java.awt.event.ActionListener al) {
-        JButton b = new JButton(txt) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); g2.dispose(); super.paintComponent(g);
-            }
-        };
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
     }
     private JButton smallBtn(String txt, Color bg) {
-        JButton b = new JButton(txt); b.setBackground(bg); b.setForeground(Color.WHITE);
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setFont(new Font("Segoe UI", Font.BOLD, 12)); b.setFocusPainted(false); b.setBorderPainted(false);
-        b.setPreferredSize(new Dimension(150, 38)); return b;
+        b.setPreferredSize(new Dimension(110, 38)); return b;
     }
     private void styleTable(JTable t) {
         t.setBackground(CARD); t.setForeground(TEXT); t.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         t.setRowHeight(30); t.getTableHeader().setBackground(new Color(17, 24, 39));
         t.getTableHeader().setForeground(new Color(6, 182, 212)); t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         t.setGridColor(BORDER_C); t.setSelectionBackground(ACCENT); t.setSelectionForeground(Color.WHITE);
+        UIUtils.polishTable(t);
     }
 }

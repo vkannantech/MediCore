@@ -1,6 +1,7 @@
 package medicore;
 
 import medicore.auth.LoginFrame;
+import medicore.ui.UIUtils;
 
 import javax.swing.*;
 
@@ -17,6 +18,7 @@ public class Main {
         } catch (Exception e) {
             // Fall back to default if Nimbus not available
         }
+        UIUtils.installProfessionalTheme();
 
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame();

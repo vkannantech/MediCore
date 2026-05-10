@@ -12,6 +12,7 @@ import medicore.ui.UIUtils;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.function.BiConsumer;
 
 public class DashboardFrame extends JFrame {
 
@@ -33,12 +34,15 @@ public class DashboardFrame extends JFrame {
         new Color(239, 68,  68),    // red     — Logout
     };
 
-    private static final String[] CARD_ICONS  = {"👤", "🩺", "📅", "💊", "💳", "🚪"};
+    private static final String[] CARD_ICONS  = {"👥", "👨‍⚕️", "📅", "🏥", "💳", "🔒"};
     private static final String[] CARD_TITLES = {"Patients", "Doctors", "Appointments", "Medical Records", "Billing", "Logout"};
     private static final String[] CARD_SUBS   = {
         "Register & Search", "Add & View", "Book & Manage", "Diagnosis & Rx", "Generate Bills", "Sign Out"
     };
     private final JLabel[] summaryValues = new JLabel[5];
+    private JPanel contentHost;
+    private Component homeView;
+    private BiConsumer<String, Component> navigator;
 
     public DashboardFrame(String username) {
         this.username = username;
@@ -49,73 +53,134 @@ public class DashboardFrame extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setResizable(true);
         buildUI();
+        navigator = this::showPage;
+        UIUtils.setPageNavigator(navigator);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosed(java.awt.event.WindowEvent e) {
+                UIUtils.clearPageNavigator(navigator);
+            }
+        });
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG_DARK);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(22, 22, 22, 22));
 
-        // ── Top Header ──────────────────────────────────────────────
-        JPanel header = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                GradientPaint gp = new GradientPaint(0, 0, HEADER_BG, getWidth(), 0, new Color(30, 41, 59));
-                g2.setPaint(gp); g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        header.setLayout(new BorderLayout());
-        header.setPreferredSize(new Dimension(0, 80));
+        JPanel shell = new JPanel(new BorderLayout(22, 0));
+        shell.setOpaque(false);
 
-        JPanel leftHead = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        leftHead.setOpaque(false);
-        JLabel ico = new JLabel("🏥"); ico.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
-        JPanel titles = new JPanel(new GridLayout(2, 1)); titles.setOpaque(false);
-        JLabel appTitle = new JLabel("MediCore"); appTitle.setFont(new Font("Segoe UI", Font.BOLD, 20)); appTitle.setForeground(TEXT);
-        JLabel appSub   = new JLabel("Intelligent Hospital Management"); appSub.setFont(new Font("Segoe UI", Font.PLAIN, 12)); appSub.setForeground(new Color(6, 182, 212));
-        titles.add(appTitle); titles.add(appSub);
-        leftHead.add(ico); leftHead.add(titles);
+        JPanel sidebar = buildSidebar();
 
-        JPanel rightHead = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 22));
-        rightHead.setOpaque(false);
-        JLabel userLbl = new JLabel("👋  Welcome, " + username);
-        userLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        userLbl.setForeground(MUTED);
-        rightHead.add(userLbl);
+        contentHost = new JPanel(new BorderLayout());
+        contentHost.setOpaque(false);
+        homeView = buildHomeView();
+        contentHost.add(homeView, BorderLayout.CENTER);
 
-        header.add(leftHead, BorderLayout.WEST);
-        header.add(rightHead, BorderLayout.EAST);
+        shell.add(sidebar, BorderLayout.WEST);
+        shell.add(contentHost, BorderLayout.CENTER);
+        root.add(shell, BorderLayout.CENTER);
+        setContentPane(UIUtils.wrapScrollable(root, BG_DARK));
+        refreshSummary();
+    }
 
-        // ── Centre — welcome text ────────────────────────────────────
-        JLabel welcome = new JLabel("What would you like to manage today?", SwingConstants.CENTER);
-        welcome.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        welcome.setForeground(MUTED);
-        welcome.setBorder(new EmptyBorder(30, 0, 10, 0));
+    private JPanel buildHomeView() {
+        JPanel content = new JPanel(new BorderLayout(0, 18));
+        content.setOpaque(false);
+        content.add(buildHero(), BorderLayout.NORTH);
 
-        JPanel summary = buildSummaryStrip();
+        JPanel center = new JPanel(new BorderLayout(0, 18));
+        center.setOpaque(false);
+        center.add(buildSummaryStrip(), BorderLayout.NORTH);
 
-        // ── Module Cards Grid ────────────────────────────────────────
-        JPanel grid = new JPanel(new GridLayout(2, 3, 20, 20));
+        JPanel grid = new JPanel(new GridLayout(2, 3, 18, 18));
         grid.setOpaque(false);
-        grid.setBorder(new EmptyBorder(10, 40, 40, 40));
-
         for (int i = 0; i < CARD_TITLES.length; i++) {
             grid.add(makeCard(i));
         }
+        center.add(grid, BorderLayout.CENTER);
+        content.add(center, BorderLayout.CENTER);
+        return content;
+    }
 
-        JPanel centre = new JPanel(new BorderLayout());
-        centre.setBackground(BG_DARK);
-        JPanel topCentre = new JPanel(new BorderLayout());
-        topCentre.setOpaque(false);
-        topCentre.add(welcome, BorderLayout.NORTH);
-        topCentre.add(summary, BorderLayout.CENTER);
-        centre.add(topCentre, BorderLayout.NORTH);
-        centre.add(grid, BorderLayout.CENTER);
+    private JPanel buildSidebar() {
+        JPanel side = UIUtils.roundedPanel(new Color(13, 22, 39, 235), 24);
+        side.setPreferredSize(new Dimension(238, 0));
+        side.setBorder(new EmptyBorder(22, 20, 22, 20));
 
-        root.add(header, BorderLayout.NORTH);
-        root.add(centre, BorderLayout.CENTER);
-        setContentPane(UIUtils.wrapScrollable(root, BG_DARK));
-        refreshSummary();
+        JPanel stack = new JPanel();
+        stack.setOpaque(false);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+
+        JLabel logo = new JLabel("MediCore");
+        logo.setForeground(TEXT);
+        logo.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        JLabel sub = new JLabel("Clinical OS");
+        sub.setForeground(UIUtils.CYAN);
+        sub.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        stack.add(logo);
+        stack.add(Box.createVerticalStrut(4));
+        stack.add(sub);
+        stack.add(Box.createVerticalStrut(28));
+
+        JButton dashboard = UIUtils.ghostButton("HOME  Dashboard", UIUtils.CYAN);
+        dashboard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        dashboard.addActionListener(e -> showHome());
+        stack.add(dashboard);
+        stack.add(Box.createVerticalStrut(14));
+
+        for (int i = 0; i < CARD_TITLES.length; i++) {
+            JButton nav = UIUtils.pillButton(CARD_ICONS[i] + "  " + CARD_TITLES[i], CARD_COLORS[i]);
+            final int idx = i;
+            nav.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+            nav.addActionListener(e -> handleCard(idx));
+            stack.add(nav);
+            stack.add(Box.createVerticalStrut(10));
+        }
+
+        stack.add(Box.createVerticalGlue());
+        JLabel user = new JLabel("<html><b>" + username + "</b><br><span style='color:#a6b4cd'>Administrator</span></html>");
+        user.setForeground(TEXT);
+        user.setFont(UIUtils.FONT);
+        stack.add(user);
+
+        side.add(stack, BorderLayout.CENTER);
+        return side;
+    }
+
+    private JPanel buildHero() {
+        JPanel hero = UIUtils.gradientCard(new Color(16, 72, 108), new Color(25, 38, 75), UIUtils.CYAN, 26);
+        hero.setBorder(new EmptyBorder(26, 30, 26, 30));
+
+        JPanel copy = new JPanel(new GridLayout(3, 1, 0, 4));
+        copy.setOpaque(false);
+        JLabel eyebrow = new JLabel("HOSPITAL MANAGEMENT PLATFORM");
+        eyebrow.setForeground(new Color(125, 231, 244));
+        eyebrow.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        JLabel title = new JLabel("Modern care operations, all in one workspace");
+        title.setForeground(TEXT);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        JLabel desc = new JLabel("Track patients, doctors, appointments, records, billing, and reports from a focused SaaS dashboard.");
+        desc.setForeground(new Color(203, 213, 225));
+        desc.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        copy.add(eyebrow);
+        copy.add(title);
+        copy.add(desc);
+
+        JPanel right = new JPanel(new GridLayout(2, 1, 0, 5));
+        right.setOpaque(false);
+        JLabel live = new JLabel("Live Workspace", SwingConstants.RIGHT);
+        live.setForeground(TEXT);
+        live.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        JLabel user = new JLabel("Welcome, " + username, SwingConstants.RIGHT);
+        user.setForeground(MUTED);
+        user.setFont(UIUtils.FONT_BOLD);
+        right.add(live);
+        right.add(user);
+
+        hero.add(copy, BorderLayout.CENTER);
+        hero.add(right, BorderLayout.EAST);
+        return hero;
     }
 
     private JPanel buildSummaryStrip() {
@@ -127,9 +192,9 @@ public class DashboardFrame extends JFrame {
         stats.setOpaque(false);
         String[] labels = {"Patients", "Doctors", "Today Appts", "Records", "Revenue"};
         for (int i = 0; i < labels.length; i++) {
-            JPanel card = new JPanel(new GridLayout(2, 1));
-            card.setBackground(new Color(30, 41, 59));
-            card.setBorder(new EmptyBorder(12, 14, 12, 14));
+            JPanel card = UIUtils.roundedPanel(new Color(20, 31, 52, 232), 18);
+            card.setLayout(new GridLayout(2, 1));
+            card.setBorder(new EmptyBorder(14, 16, 14, 16));
             JLabel title = new JLabel(labels[i]);
             title.setForeground(MUTED);
             title.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -155,34 +220,22 @@ public class DashboardFrame extends JFrame {
 
     private JPanel makeCard(int idx) {
         Color accent = CARD_COLORS[idx];
-        JPanel card = new JPanel(new BorderLayout()) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(0, 0, new Color(30, 41, 59), 0, getHeight(),
-                        new Color(accent.getRed()/6 + 20, accent.getGreen()/6 + 30, accent.getBlue()/6 + 50));
-                g2.setPaint(gp);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
-                // Left accent bar
-                g2.setColor(accent);
-                g2.fillRoundRect(0, 0, 6, getHeight(), 6, 6);
-            }
-        };
-        card.setOpaque(false);
+        JPanel card = UIUtils.gradientCard(new Color(25, 37, 62), new Color(16, 24, 41), accent, 22);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        card.setBorder(new EmptyBorder(20, 22, 20, 16));
+        card.setBorder(new EmptyBorder(24, 24, 24, 18));
 
         // Icon
         JLabel icon = new JLabel(CARD_ICONS[idx]);
-        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 34));
+        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
+        icon.setForeground(accent);
 
         JPanel textPanel = new JPanel(new GridLayout(2, 1, 0, 4));
         textPanel.setOpaque(false);
         JLabel title = new JLabel(CARD_TITLES[idx]);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
         title.setForeground(TEXT);
         JLabel sub = new JLabel(CARD_SUBS[idx]);
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         sub.setForeground(MUTED);
         textPanel.add(title); textPanel.add(sub);
 
@@ -191,8 +244,8 @@ public class DashboardFrame extends JFrame {
 
         // Hover effect
         card.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseEntered(java.awt.event.MouseEvent e) { card.setBorder(new EmptyBorder(19, 21, 19, 15)); card.repaint(); }
-            @Override public void mouseExited(java.awt.event.MouseEvent e)  { card.setBorder(new EmptyBorder(20, 22, 20, 16)); card.repaint(); }
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) { card.setBorder(new EmptyBorder(22, 26, 22, 16)); card.repaint(); }
+            @Override public void mouseExited(java.awt.event.MouseEvent e)  { card.setBorder(new EmptyBorder(24, 24, 24, 18)); card.repaint(); }
             @Override public void mouseClicked(java.awt.event.MouseEvent e) { handleCard(idx); }
         });
         return card;
@@ -200,22 +253,36 @@ public class DashboardFrame extends JFrame {
 
     private void handleCard(int idx) {
         switch (idx) {
-            case 0: openAndRefresh(new PatientFrame());       break;
-            case 1: openAndRefresh(new DoctorFrame());        break;
-            case 2: openAndRefresh(new AppointmentFrame());   break;
-            case 3: openAndRefresh(new MedicalRecordFrame()); break;
-            case 4: openAndRefresh(new BillingFrame());       break;
+            case 0: showFramePage(new PatientFrame());       break;
+            case 1: showFramePage(new DoctorFrame());        break;
+            case 2: showFramePage(new AppointmentFrame());   break;
+            case 3: showFramePage(new MedicalRecordFrame()); break;
+            case 4: showFramePage(new BillingFrame());       break;
             case 5:
                 int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
-                if (confirm == JOptionPane.YES_OPTION) { new LoginFrame().setVisible(true); dispose(); }
+                if (confirm == JOptionPane.YES_OPTION) {
+                    UIUtils.clearPageNavigator(navigator);
+                    new LoginFrame().setVisible(true);
+                    dispose();
+                }
                 break;
         }
     }
 
-    private void openAndRefresh(JFrame frame) {
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override public void windowClosed(java.awt.event.WindowEvent e) { refreshSummary(); }
-        });
-        frame.setVisible(true);
+    private void showFramePage(JFrame frame) {
+        showPage(frame.getTitle(), frame.getContentPane());
+    }
+
+    private void showHome() {
+        refreshSummary();
+        showPage("MediCore - Dashboard", homeView);
+    }
+
+    private void showPage(String title, Component content) {
+        setTitle(title == null || title.isBlank() ? "MediCore" : title);
+        contentHost.removeAll();
+        contentHost.add(content, BorderLayout.CENTER);
+        contentHost.revalidate();
+        contentHost.repaint();
     }
 }

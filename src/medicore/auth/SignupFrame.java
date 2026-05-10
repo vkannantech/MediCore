@@ -1,6 +1,5 @@
 package medicore.auth;
 
-import medicore.auth.AuthDAO;
 import medicore.ui.UIUtils;
 
 import javax.swing.*;
@@ -14,102 +13,142 @@ public class SignupFrame extends JFrame {
     private JPasswordField txtConfirm;
     private final AuthDAO authDAO = new AuthDAO();
 
-    private static final Color BG_DARK     = new Color(15, 23, 42);
-    private static final Color CARD_BG     = new Color(30, 41, 59);
-    private static final Color ACCENT_GREEN= new Color(16, 185, 129);
-    private static final Color ACCENT_CYAN = new Color(6, 182, 212);
-    private static final Color TEXT_WHITE  = new Color(248, 250, 252);
-    private static final Color TEXT_MUTED  = new Color(148, 163, 184);
-    private static final Color INPUT_BG    = new Color(51, 65, 85);
-    private static final Color BORDER_COLOR= new Color(71, 85, 105);
+    private static final Color BG_DARK     = UIUtils.BG;
+    private static final Color CARD_BG     = UIUtils.CARD;
+    private static final Color ACCENT_GREEN= UIUtils.GREEN;
+    private static final Color ACCENT_CYAN = UIUtils.CYAN;
+    private static final Color TEXT_WHITE  = UIUtils.TEXT;
+    private static final Color TEXT_MUTED  = UIUtils.MUTED;
+    private static final Color INPUT_BG    = UIUtils.INPUT;
 
     public SignupFrame() {
         setTitle("MediCore — Sign Up");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(480, 580);
-        setMinimumSize(new Dimension(420, 540));
+        setSize(850, 600);
+        setMinimumSize(new Dimension(750, 540));
         setLocationRelativeTo(null);
         setResizable(true);
         buildUI();
     }
 
     private void buildUI() {
-        JPanel mainPanel = new JPanel(new BorderLayout()) {
+        JPanel mainPanel = new JPanel(new GridLayout(1, 2));
+
+        // Left Branding Panel
+        JPanel brandPanel = new JPanel(new BorderLayout()) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                g2.setColor(BG_DARK);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                GradientPaint gp = new GradientPaint(0, 0, new Color(12, 66, 69), getWidth(), getHeight(), BG_DARK);
+                g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(255, 255, 255, 8));
+                g2.fillOval(-100, -100, 300, 300);
+                g2.fillOval(getWidth()-150, getHeight()-200, 400, 400);
             }
         };
-        mainPanel.setOpaque(false);
-        mainPanel.setBorder(new EmptyBorder(40, 50, 40, 50));
+        brandPanel.setOpaque(false);
 
-        // Header
-        JPanel header = new JPanel();
-        header.setOpaque(false);
-        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        JPanel brandContent = new JPanel();
+        brandContent.setLayout(new BoxLayout(brandContent, BoxLayout.Y_AXIS));
+        brandContent.setOpaque(false);
+        brandContent.setBorder(new EmptyBorder(40, 40, 40, 40));
 
-        JLabel icon = new JLabel("🏥", SwingConstants.CENTER);
-        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 42));
-        icon.setAlignmentX(CENTER_ALIGNMENT);
+        JLabel iconLabel = new JLabel("🏥", SwingConstants.CENTER);
+        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 72));
+        iconLabel.setForeground(ACCENT_GREEN);
+        iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel title = new JLabel("Create Account", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        title.setForeground(TEXT_WHITE);
-        title.setAlignmentX(CENTER_ALIGNMENT);
+        JLabel titleLabel = new JLabel("Join MediCore", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        titleLabel.setForeground(TEXT_WHITE);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel sub = new JLabel("New accounts are created as normal users", SwingConstants.CENTER);
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        sub.setForeground(ACCENT_CYAN);
-        sub.setAlignmentX(CENTER_ALIGNMENT);
+        JLabel subLabel = new JLabel("Intelligent Hospital Management", SwingConstants.CENTER);
+        subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        subLabel.setForeground(ACCENT_GREEN);
+        subLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        header.add(icon);
-        header.add(Box.createVerticalStrut(8));
-        header.add(title);
-        header.add(Box.createVerticalStrut(4));
-        header.add(sub);
-        header.add(Box.createVerticalStrut(25));
+        brandContent.add(Box.createVerticalGlue());
+        brandContent.add(iconLabel);
+        brandContent.add(Box.createVerticalStrut(24));
+        brandContent.add(titleLabel);
+        brandContent.add(Box.createVerticalStrut(12));
+        brandContent.add(subLabel);
+        brandContent.add(Box.createVerticalGlue());
+        
+        brandPanel.add(brandContent, BorderLayout.CENTER);
 
-        // Card
+        // Right Form Panel
+        JPanel formContainer = new JPanel(new GridBagLayout());
+        formContainer.setBackground(BG_DARK);
+
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
+                g2.setColor(new Color(16, 185, 129, 90));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 24, 24);
             }
         };
         card.setOpaque(false);
         card.setLayout(new GridBagLayout());
-        card.setBorder(new EmptyBorder(28, 30, 28, 30));
+        card.setBorder(new EmptyBorder(35, 45, 35, 45));
+
+        JLabel signupHeader = new JLabel("Create Account", SwingConstants.LEFT);
+        signupHeader.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        signupHeader.setForeground(TEXT_WHITE);
+        
+        JLabel signupSub = new JLabel("Register to access the patient portal.", SwingConstants.LEFT);
+        signupSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        signupSub.setForeground(TEXT_MUTED);
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 0, 5, 0);
         gbc.weightx = 1.0;
         gbc.gridx = 0;
 
-        gbc.gridy = 0; card.add(makeLabel("Username"), gbc);
-        gbc.gridy = 1; txtUsername = makeTextField(); card.add(txtUsername, gbc);
-        gbc.gridy = 2; card.add(makeLabel("Password"), gbc);
-        gbc.gridy = 3; txtPassword = makePasswordField(); card.add(txtPassword, gbc);
-        gbc.gridy = 4; card.add(makeLabel("Confirm Password"), gbc);
-        gbc.gridy = 5; txtConfirm = makePasswordField(); card.add(txtConfirm, gbc);
+        gbc.gridy = 0; gbc.insets = new Insets(0, 0, 6, 0);
+        card.add(signupHeader, gbc);
+        
+        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 24, 0);
+        card.add(signupSub, gbc);
 
-        gbc.gridy = 6; gbc.insets = new Insets(18, 0, 6, 0);
+        gbc.gridy = 2; gbc.insets = new Insets(6, 0, 6, 0);
+        card.add(makeLabel("Username"), gbc);
+        gbc.gridy = 3; txtUsername = makeTextField(); card.add(txtUsername, gbc);
+        
+        gbc.gridy = 4; gbc.insets = new Insets(10, 0, 6, 0);
+        card.add(makeLabel("Password"), gbc);
+        gbc.gridy = 5; gbc.insets = new Insets(6, 0, 6, 0);
+        txtPassword = makePasswordField(); card.add(txtPassword, gbc);
+        
+        gbc.gridy = 6; gbc.insets = new Insets(10, 0, 6, 0);
+        card.add(makeLabel("Confirm Password"), gbc);
+        gbc.gridy = 7; gbc.insets = new Insets(6, 0, 6, 0);
+        txtConfirm = makePasswordField(); card.add(txtConfirm, gbc);
+
+        gbc.gridy = 8; gbc.insets = new Insets(24, 0, 10, 0);
         JButton btnRegister = makeButton("Register", ACCENT_GREEN);
         btnRegister.addActionListener(e -> doSignup());
         card.add(btnRegister, gbc);
 
-        gbc.gridy = 7; gbc.insets = new Insets(5, 0, 0, 0);
+        gbc.gridy = 9; gbc.insets = new Insets(6, 0, 0, 0);
         JButton btnBack = makeLinkButton("Already have an account? Login");
         btnBack.addActionListener(e -> { new LoginFrame().setVisible(true); dispose(); });
         card.add(btnBack, gbc);
 
-        mainPanel.add(header, BorderLayout.NORTH);
-        mainPanel.add(card, BorderLayout.CENTER);
-        setContentPane(UIUtils.wrapScrollable(mainPanel, BG_DARK));
+        formContainer.add(card);
+
+        mainPanel.add(brandPanel);
+        mainPanel.add(formContainer);
+        
+        getRootPane().setDefaultButton(btnRegister);
+        setContentPane(mainPanel);
     }
 
     private void doSignup() {
@@ -154,42 +193,16 @@ public class SignupFrame extends JFrame {
         styleInput(pf); return pf;
     }
     private void styleInput(JTextField tf) {
-        tf.setBackground(INPUT_BG);
-        tf.setForeground(TEXT_WHITE);
-        tf.setCaretColor(TEXT_WHITE);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tf.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(8, 12, 8, 12)));
-        tf.setPreferredSize(new Dimension(0, 42));
+        UIUtils.styleTextField(tf);
     }
     private JButton makeButton(String text, Color bg) {
-        JButton btn = new JButton(text) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
+        JButton btn = UIUtils.pillButton(text, bg);
         btn.setPreferredSize(new Dimension(0, 44));
-        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return btn;
     }
     private JButton makeLinkButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setForeground(ACCENT_CYAN);
+        JButton btn = UIUtils.ghostButton(text, ACCENT_CYAN);
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return btn;
     }
 }

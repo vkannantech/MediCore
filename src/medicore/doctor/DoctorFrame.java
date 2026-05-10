@@ -39,24 +39,21 @@ public class DoctorFrame extends JFrame {
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG);
-        root.add(makeHeader("🩺  Doctor Management"), BorderLayout.NORTH);
+        JPanel root = UIUtils.appBackground();
+        root.setBorder(new EmptyBorder(14, 14, 14, 14));
+        root.add(makeHeader("Doctor Management"), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setBackground(CARD);
-        tabs.setForeground(TEXT);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabs.addTab("➕  Add Doctor",   UIUtils.wrapScrollable(buildAddPanel(), BG));
-        tabs.addTab("📋  View Doctors", buildViewPanel());
+        UIUtils.styleTabs(tabs);
+        tabs.addTab("Add Doctor",   UIUtils.wrapScrollable(buildAddPanel(), BG));
+        tabs.addTab("View Doctors", buildViewPanel());
         tabs.addChangeListener(e -> refreshTable());
         root.add(tabs, BorderLayout.CENTER);
         setContentPane(root);
     }
 
     private JPanel buildAddPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
+        JPanel p = UIUtils.contentPanel(new GridBagLayout());
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(30, 60, 30, 60));
         GridBagConstraints g = new GridBagConstraints();
@@ -78,13 +75,13 @@ public class DoctorFrame extends JFrame {
     }
 
     private JPanel buildViewPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 10));
+        JPanel p = UIUtils.contentPanel(new BorderLayout(0, 14));
         p.setBackground(BG);
         p.setBorder(new EmptyBorder(15, 20, 15, 20));
 
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bar.setOpaque(false);
-        JButton btnRefresh = smallBtn("↻ Refresh", ACCENT);
+        JButton btnRefresh = smallBtn("Refresh", ACCENT);
         btnRefresh.addActionListener(e -> refreshTable());
         bar.add(btnRefresh);
         p.add(bar, BorderLayout.NORTH);
@@ -93,7 +90,7 @@ public class DoctorFrame extends JFrame {
         tableModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r, int c) { return false; } };
         table = new JTable(tableModel);
         styleTable(table);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        p.add(UIUtils.scrollPane(table), BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         actions.setOpaque(false);
@@ -136,7 +133,7 @@ public class DoctorFrame extends JFrame {
         JComboBox<String> availBox = new JComboBox<>(new String[]{"Morning", "Afternoon", "Evening", "Night"});
         styleCombo(availBox); availBox.setSelectedItem(doctor[3]);
 
-        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 8));
+        JPanel panel = UIUtils.dialogPanel(new GridLayout(0, 1, 0, 8));
         panel.add(label("Doctor Name")); panel.add(nameField);
         panel.add(label("Specialization")); panel.add(specField);
         panel.add(label("Availability")); panel.add(availBox);
@@ -172,46 +169,33 @@ public class DoctorFrame extends JFrame {
     private int getSelectedDoctorId() {
         int row = table.getSelectedRow();
         if (row < 0) { warn("Select a doctor first."); return -1; }
-        return Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        int modelRow = table.convertRowIndexToModel(row);
+        return Integer.parseInt(String.valueOf(tableModel.getValueAt(modelRow, 0)));
     }
 
     private void warn(String m) { JOptionPane.showMessageDialog(this, m, "Error", JOptionPane.ERROR_MESSAGE); }
     private void info(String m) { JOptionPane.showMessageDialog(this, m, "Success", JOptionPane.INFORMATION_MESSAGE); }
 
     private JPanel makeHeader(String t) {
-        JPanel h = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        h.setBackground(new Color(17, 24, 39));
-        JLabel l = new JLabel(t); l.setFont(new Font("Segoe UI", Font.BOLD, 18)); l.setForeground(TEXT);
-        h.add(l); return h;
+        return UIUtils.moduleHeader(t, "Manage specialist profiles, availability, and clinical capacity.", ACCENT2);
     }
     private JLabel label(String t) { JLabel l = new JLabel(t); l.setForeground(MUTED); l.setFont(new Font("Segoe UI", Font.PLAIN, 13)); return l; }
     private JTextField input() {
         JTextField tf = new JTextField();
-        tf.setBackground(INPUT_BG); tf.setForeground(TEXT); tf.setCaretColor(TEXT);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(BORDER_C), new EmptyBorder(7, 10, 7, 10)));
-        tf.setPreferredSize(new Dimension(0, 38)); return tf;
+        UIUtils.styleTextField(tf);
+        return tf;
     }
     private void styleCombo(JComboBox<?> c) {
-        c.setBackground(INPUT_BG); c.setForeground(TEXT); c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        c.setPreferredSize(new Dimension(0, 38));
+        UIUtils.styleCombo(c);
     }
     private JButton actionBtn(String txt, Color bg, java.awt.event.ActionListener al) {
-        JButton b = new JButton(txt) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); g2.dispose(); super.paintComponent(g);
-            }
-        };
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setPreferredSize(new Dimension(0, 42)); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addActionListener(al); return b;
     }
     private JButton smallBtn(String txt, Color bg) {
-        JButton b = new JButton(txt); b.setBackground(bg); b.setForeground(Color.WHITE);
+        JButton b = UIUtils.pillButton(txt, bg);
         b.setFont(new Font("Segoe UI", Font.BOLD, 12)); b.setFocusPainted(false); b.setBorderPainted(false);
         b.setPreferredSize(new Dimension(100, 35)); return b;
     }
@@ -220,5 +204,6 @@ public class DoctorFrame extends JFrame {
         t.setRowHeight(30); t.getTableHeader().setBackground(new Color(17, 24, 39));
         t.getTableHeader().setForeground(new Color(6, 182, 212)); t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         t.setGridColor(BORDER_C); t.setSelectionBackground(ACCENT); t.setSelectionForeground(Color.WHITE);
+        UIUtils.polishTable(t);
     }
 }
