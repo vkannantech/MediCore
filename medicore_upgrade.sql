@@ -3,6 +3,8 @@
 
 CREATE DATABASE IF NOT EXISTS medicore;
 USE medicore;
+USE medicore;
+UPDATE users SET password='1234', role='ADMIN', patient_id=NULL WHERE username='admin';
 
 DROP PROCEDURE IF EXISTS create_index_if_missing;
 DROP PROCEDURE IF EXISTS add_column_if_missing;

@@ -3,6 +3,15 @@
 
 CREATE DATABASE IF NOT EXISTS medicore;
 USE medicore;
+-- When you click the 'Accept' button in the Java app:
+UPDATE appointment 
+SET status = 'Confirmed' 
+WHERE appointment_id = [selected_id];
+
+-- When you click the 'Reject' button in the Java app:
+UPDATE appointment 
+SET status = 'Rejected' 
+WHERE appointment_id = [selected_id];
 
 DROP PROCEDURE IF EXISTS create_index_if_missing;
 DELIMITER //
