@@ -44,6 +44,28 @@
 
 ---
 
+## 🌱 Seed Demo Data
+
+To populate the `medicore` database with a complete, medically consistent demo dataset:
+
+### Prerequisites
+1. Ensure MySQL server is active on `localhost:3306`.
+2. Start the Spring Boot backend once to allow Hibernate to initialize/update table schemas.
+
+### Seed Execution Command
+Run the idempotent SQL seed script via PowerShell or MySQL CLI:
+```powershell
+Get-Content Med-Spring/backend-spring-based/src/main/resources/db/seed.sql | mysql -u root -padmin medicore
+```
+
+### Demo Credentials
+| Role | Email | Password | Description |
+|---|---|---|---|
+| **Patient** | `vkannantech@gmail.com` | `Kannan@2006` | Full medical profile, 5 records, 3 meds, 4 documents, 3 consents |
+| **Doctor** | `f@f.in` | `qwerty123` | Dr. Aris Thorne (Cardiology Specialist) |
+
+---
+
 ## ❤️ Support the Developer
 
 If you find this project useful, please consider sponsoring to support further development!

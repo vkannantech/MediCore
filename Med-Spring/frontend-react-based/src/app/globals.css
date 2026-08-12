@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme {
+  /* The Clinical Canvas */
+  --color-alabaster: #F8F9FA;
+  --color-frosted: #F1F3F5;
+  --color-abyssal-night: #0B132B;
+
+  /* The Trust Spectrum */
+  --color-sapphire: #1B3B6F;
+  --color-abyssal-teal: #0F4C5C;
+  --color-cyan: #00B4D8;
+
+  /* The Empathy & Alert Spectrum */
+  --color-coral: #FF6B6B;
+  --color-eucalyptus: #2A9D8F;
+  --color-gold: #D4AF37;
+
+  /* The Typography Slate */
+  --color-slate-charcoal: #2C3E50;
+  --color-mist: #8D99AE;
+
+  /* Fonts */
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter-tight);
+}
+
+:root {
+  --background: var(--color-alabaster);
+  --foreground: var(--color-slate-charcoal);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Materiality & Depth */
+@utility glass-panel {
+  @apply bg-white/70 backdrop-blur-md border border-white/50 shadow-[0_20px_40px_-15px_rgba(15,76,92,0.1)];
+}
+
+@utility shadow-ambient {
+  @apply shadow-[0_20px_40px_-15px_rgba(15,76,92,0.1)];
+}
+
+/* Fluid Dynamics (Custom Easing) */
+@utility transition-fluid {
+  transition-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  transition-duration: 400ms;
+}
+
+/* Custom Component Utilities */
+@utility card-base {
+  @apply rounded-2xl bg-frosted border border-slate-200/60 p-8 transition-all transition-fluid;
+}
+
+@utility card-hover {
+  @apply hover:border-cyan hover:shadow-ambient hover:-translate-y-1;
+}
+
+@utility input-base {
+  @apply rounded-xl border border-slate-200/60 px-4 py-3 bg-white/50 transition-all transition-fluid focus:outline-none focus:ring-0 focus:border-cyan focus:shadow-[0_0_15px_rgba(0,180,216,0.3)];
+}
+
+@utility label-base {
+  @apply block text-sm font-medium text-mist mb-2 transition-all transition-fluid;
+}
+
+@utility btn-base {
+  @apply inline-flex flex-row items-center justify-center gap-2.5 rounded-xl px-6 py-3 font-semibold whitespace-nowrap shrink-0 transition-all transition-fluid focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+@utility btn-primary {
+  @apply btn-base bg-cyan text-white hover:bg-cyan/90 hover:shadow-ambient focus:ring-cyan;
+}
+
+@utility btn-secondary {
+  @apply btn-base bg-white text-sapphire border border-slate-200/60 hover:bg-frosted hover:border-cyan focus:ring-sapphire;
+}
+
+@utility btn-ghost {
+  @apply btn-base bg-transparent text-sapphire hover:bg-frosted focus:ring-sapphire;
+}
+
+@utility btn-danger {
+  @apply btn-base bg-coral text-white hover:bg-coral/90 hover:shadow-ambient focus:ring-coral;
+}
+
+/* Typography Directives */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  @apply tracking-tight text-sapphire;
+}
+
+p, span, div {
+  @apply leading-relaxed;
+}
+
+/* Skeleton Shimmer */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@utility animate-shimmer {
+  background: linear-gradient(90deg, var(--color-frosted) 25%, #ffffff 50%, var(--color-frosted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
