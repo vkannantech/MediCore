@@ -84,7 +84,7 @@ export default function DashboardHome() {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.65, 0, 0.35, 1] } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.65, 0, 0.35, 1] as const } }
   };
 
   if (loading) {
@@ -324,7 +324,7 @@ export default function DashboardHome() {
         <Card className="p-6 bg-white border border-slate-200/60 shadow-ambient flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-mist uppercase tracking-wider block mb-1">Active Regimen</span>
-            <span className="text-3xl font-display font-bold text-sapphire">{snapshot?.activeMedicationCount || 2}</span>
+            <span className="text-3xl font-display font-bold text-sapphire">{snapshot?.activeMedicationsCount || 2}</span>
             <span className="text-xs text-mist block mt-1">Prescriptions</span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-cyan/10 text-cyan flex items-center justify-center">
