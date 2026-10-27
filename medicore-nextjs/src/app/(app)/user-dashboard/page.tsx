@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDate, formatMoney, todayDateOnly } from "@/lib/dates";
 import { InsightCard, PageHeader, QuickLink, SectionCard, StatusPill, StatCard, TimelineItem } from "@/components/ui";
 
 export default async function UserDashboardPage() {
@@ -21,7 +22,11 @@ export default async function UserDashboardPage() {
       _sum: { amount: true },
     }),
     prisma.appointment.findFirst({
-      where: { patientId, date: { gte: new Date() } },
+      where: {
+        patientId,
+        date: { gte: todayDateOnly() },
+        OR: [{ status: null }, { status: { notIn: ["Completed", "Cancelled"] } }],
+      },
       include: { doctor: true },
       orderBy: { date: "asc" },
     }),
@@ -48,16 +53,16 @@ export default async function UserDashboardPage() {
       <div className="grid gap-3 lg:grid-cols-2">
         <InsightCard
           label="Open balance"
-          value={`Rs. ${(openBalance._sum.amount ?? 0).toFixed(2)}`}
+          value={formatMoney(openBalance._sum.amount)}
           detail="Unpaid or partially paid billing amount currently visible in your patient account."
-          tone={(openBalance._sum.amount ?? 0) > 0 ? "gold" : "green"}
+          tone={Number(openBalance._sum.amount ?? 0) > 0 ? "gold" : "green"}
         />
         <div className="rounded-lg border border-[#d8e8df] bg-white p-4">
           <p className="text-sm font-bold text-[#61736c]">Next appointment</p>
           {nextAppointment ? (
             <TimelineItem
               title={nextAppointment.doctor.name}
-              meta={nextAppointment.date.toISOString().slice(0, 10)}
+              meta={formatDate(nextAppointment.date)}
               tone={nextAppointment.status === "Emergency" ? "coral" : "blue"}
             >
               <div className="flex flex-wrap items-center gap-2">

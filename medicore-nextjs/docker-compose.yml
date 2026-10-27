@@ -1,0 +1,52 @@
+# MediCore local infrastructure.
+# Values come from ./.env (docker compose reads it automatically).
+#   docker compose up -d db        start MySQL
+#   docker compose --profile app up -d --build   run the production app container too
+
+name: medicore
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: medicore-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-medicore}
+      MYSQL_USER: ${MYSQL_USER:-medicore}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - medicore-mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
+  app:
+    profiles: ["app"]
+    build: .
+    container_name: medicore-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-medicore}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE:-medicore}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      # Plain-HTTP local container; set to "true" behind an HTTPS proxy.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+
+volumes:
+  medicore-mysql-data:

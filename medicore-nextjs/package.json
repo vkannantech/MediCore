@@ -2,28 +2,35 @@
   "name": "medicore-nextjs",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:push": "prisma db push",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "test:smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-mariadb": "^7.7.0",
-    "@prisma/adapter-neon": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^16.6.1",
     "jose": "^6.2.2",
     "mariadb": "^3.5.2",
     "next": "16.2.4",
     "prisma": "^7.7.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "zod": "^4.3.6"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

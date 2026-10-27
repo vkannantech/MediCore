@@ -1,61 +1,77 @@
-import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard, StatCard } from "@/components/ui";
+import { LIST_LIMIT } from "@/lib/constants";
+import { int, optionalText, runFormAction, text } from "@/lib/form";
+import { EmptyState, FlashMessage, ListLimitNote, PageHeader, PatientIdInput, SectionCard, StatCard } from "@/components/ui";
 
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patientId?: string }>;
+  searchParams: Promise<{ patientId?: string; ok?: string; error?: string }>;
 }) {
   await requireSession("ADMIN");
-  const filterPatientId = Number((await searchParams).patientId || 0);
+  const params = await searchParams;
+  const filterPatientId = /^\d+$/.test(params.patientId ?? "") ? Number(params.patientId) : 0;
 
   async function addRecord(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.medicalRecord.create({
-      data: {
-        patientId: Number(formData.get("patientId")),
-        diagnosis: String(formData.get("diagnosis")),
-        prescription: String(formData.get("prescription")),
+    await runFormAction(
+      "/records",
+      async () => {
+        await requireSession("ADMIN");
+        const record = await prisma.medicalRecord.create({
+          data: {
+            patientId: int(formData, "patientId", "Patient ID", { min: 1 }),
+            diagnosis: text(formData, "diagnosis", "Diagnosis", { required: true, max: 10_000 }),
+            prescription: optionalText(formData, "prescription", "Prescription", 10_000),
+          },
+        });
+        return `Record #${record.recordId} saved.`;
       },
-    });
-    revalidatePath("/records");
-    revalidatePath("/dashboard");
+      ["/dashboard"],
+    );
   }
 
   async function updateRecord(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.medicalRecord.update({
-      where: { recordId: Number(formData.get("recordId")) },
-      data: {
-        diagnosis: String(formData.get("diagnosis")),
-        prescription: String(formData.get("prescription")),
-      },
+    await runFormAction("/records", async () => {
+      await requireSession("ADMIN");
+      const recordId = int(formData, "recordId", "Record ID");
+      await prisma.medicalRecord.update({
+        where: { recordId },
+        data: {
+          diagnosis: text(formData, "diagnosis", "Diagnosis", { required: true, max: 10_000 }),
+          prescription: optionalText(formData, "prescription", "Prescription", 10_000),
+        },
+      });
+      return `Record #${recordId} updated.`;
     });
-    revalidatePath("/records");
   }
 
   async function deleteRecord(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.medicalRecord.delete({ where: { recordId: Number(formData.get("recordId")) } });
-    revalidatePath("/records");
-    revalidatePath("/dashboard");
+    await runFormAction(
+      "/records",
+      async () => {
+        await requireSession("ADMIN");
+        const recordId = int(formData, "recordId", "Record ID");
+        await prisma.medicalRecord.delete({ where: { recordId } });
+        return `Record #${recordId} deleted.`;
+      },
+      ["/dashboard"],
+    );
   }
 
-  const [records, totalRecords, filteredPatient] = await Promise.all([
+  const [records, totalRecords, filteredPatient, patientOptions] = await Promise.all([
     prisma.medicalRecord.findMany({
       where: filterPatientId ? { patientId: filterPatientId } : undefined,
-      include: { patient: true },
+      include: { patient: { select: { name: true } } },
       orderBy: { recordId: "desc" },
+      take: LIST_LIMIT,
     }),
     prisma.medicalRecord.count(),
-    filterPatientId
-      ? prisma.patient.findUnique({ where: { patientId: filterPatientId }, select: { name: true } })
-      : null,
+    filterPatientId ? prisma.patient.findUnique({ where: { patientId: filterPatientId }, select: { name: true } }) : null,
+    prisma.patient.findMany({ select: { patientId: true, name: true }, orderBy: { patientId: "desc" }, take: 500 }),
   ]);
 
   return (
@@ -65,6 +81,7 @@ export default async function RecordsPage({
         title="Medical Records"
         description="Create diagnoses, prescriptions, and patient-specific record history."
       />
+      <FlashMessage ok={params.ok} error={params.error} />
       <div className="grid gap-3 md:grid-cols-3">
         <StatCard label="Total Records" value={totalRecords} tone="ink" icon="records" />
         <StatCard label="Current View" value={records.length} tone="blue" icon="records" />
@@ -73,7 +90,7 @@ export default async function RecordsPage({
 
       <SectionCard title="Add Record">
         <form action={addRecord} className="grid gap-2">
-          <input name="patientId" required inputMode="numeric" placeholder="Patient ID" className="field" />
+          <PatientIdInput patients={patientOptions} />
           <textarea name="diagnosis" required placeholder="Diagnosis" className="field" />
           <textarea name="prescription" placeholder="Prescription" className="field" />
           <button className="btn btn-primary">Save</button>
@@ -100,19 +117,9 @@ export default async function RecordsPage({
                 <p className="mb-3 text-sm font-bold text-[#19332c]">
                   <span className="text-[#0f8f72]">#{r.recordId}</span> {r.patient.name} / Patient #{r.patientId}
                 </p>
-                <textarea
-                  name="diagnosis"
-                  defaultValue={r.diagnosis}
-                  className="field mb-2 text-sm"
-                />
-                <textarea
-                  name="prescription"
-                  defaultValue={r.prescription ?? ""}
-                  className="field mb-2 text-sm"
-                />
-                <div className="flex gap-2">
-                  <button className="btn btn-warning btn-compact">Update</button>
-                </div>
+                <textarea name="diagnosis" required defaultValue={r.diagnosis} className="field mb-2 text-sm" aria-label="Diagnosis" />
+                <textarea name="prescription" defaultValue={r.prescription ?? ""} className="field mb-2 text-sm" aria-label="Prescription" />
+                <button className="btn btn-warning btn-compact">Update</button>
               </form>
               <form action={deleteRecord} className="mt-2">
                 <input type="hidden" name="recordId" value={r.recordId} />
@@ -121,6 +128,7 @@ export default async function RecordsPage({
             </div>
           ))}
         </div>
+        <ListLimitNote shown={records.length} limit={LIST_LIMIT} />
       </SectionCard>
     </div>
   );

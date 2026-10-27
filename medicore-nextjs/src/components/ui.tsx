@@ -261,3 +261,59 @@ export function QuickLink({ href, label, text }: { href: string; label: string; 
     </Link>
   );
 }
+
+/** Outcome banner for form actions (`?ok=` / `?error=` set by runFormAction). */
+export function FlashMessage({ ok, error }: { ok?: string; error?: string }) {
+  if (!ok && !error) return null;
+  return (
+    <p
+      role={error ? "alert" : "status"}
+      className={`rounded-lg border px-4 py-3 text-sm font-bold ${
+        error ? "border-[#f3c4bd] bg-[#ffe8e4] text-[#b5413b]" : "border-[#b9e6d3] bg-[#e2f7ed] text-[#0f765f]"
+      }`}
+    >
+      {error ?? ok}
+    </p>
+  );
+}
+
+/** Numeric patient ID field with name suggestions from a <datalist>. */
+export function PatientIdInput({
+  patients,
+  listId = "patient-options",
+  defaultValue,
+  className = "field",
+}: {
+  patients: { patientId: number; name: string }[];
+  listId?: string;
+  defaultValue?: number | string;
+  className?: string;
+}) {
+  return (
+    <>
+      <input
+        name="patientId"
+        required
+        inputMode="numeric"
+        pattern="[0-9]+"
+        list={listId}
+        placeholder="Patient ID"
+        defaultValue={defaultValue}
+        className={className}
+        aria-label="Patient ID"
+      />
+      <datalist id={listId}>
+        {patients.map((p) => (
+          <option key={p.patientId} value={p.patientId}>
+            {p.name}
+          </option>
+        ))}
+      </datalist>
+    </>
+  );
+}
+
+export function ListLimitNote({ shown, limit }: { shown: number; limit: number }) {
+  if (shown < limit) return null;
+  return <p className="mt-3 text-xs font-bold text-[#61736c]">Showing the latest {limit}. Use search or filters to narrow down.</p>;
+}

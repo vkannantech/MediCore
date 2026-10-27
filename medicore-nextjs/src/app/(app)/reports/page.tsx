@@ -1,66 +1,88 @@
-import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
+import { LIST_LIMIT, REPORT_STATUSES } from "@/lib/constants";
+import { formatDate } from "@/lib/dates";
+import { dateOnly, int, oneOf, optionalText, runFormAction, text } from "@/lib/form";
+import { EmptyState, FlashMessage, ListLimitNote, PageHeader, PatientIdInput, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patientId?: string }>;
+  searchParams: Promise<{ patientId?: string; ok?: string; error?: string }>;
 }) {
   await requireSession("ADMIN");
-  const patientId = Number((await searchParams).patientId || 0);
+  const params = await searchParams;
+  const patientId = /^\d+$/.test(params.patientId ?? "") ? Number(params.patientId) : 0;
 
   async function addReport(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.patientReport.create({
-      data: {
-        patientId: Number(formData.get("patientId")),
-        reportType: String(formData.get("reportType")),
-        reportName: String(formData.get("reportName")),
-        reportDate: new Date(String(formData.get("reportDate"))),
-        status: String(formData.get("status") ?? "Pending"),
-        resultSummary: String(formData.get("resultSummary") ?? ""),
-        attachmentPath: String(formData.get("attachmentPath") ?? ""),
+    await runFormAction(
+      "/reports",
+      async () => {
+        await requireSession("ADMIN");
+        const report = await prisma.patientReport.create({
+          data: {
+            patientId: int(formData, "patientId", "Patient ID", { min: 1 }),
+            reportType: text(formData, "reportType", "Report type", { required: true, max: 50 }),
+            reportName: text(formData, "reportName", "Report name", { required: true, max: 150 }),
+            reportDate: dateOnly(formData, "reportDate", "Report date"),
+            status: oneOf(formData, "status", "Status", REPORT_STATUSES),
+            resultSummary: optionalText(formData, "resultSummary", "Summary", 10_000),
+            attachmentPath: optionalText(formData, "attachmentPath", "Attachment path", 255),
+          },
+        });
+        return `Report #${report.reportId} saved.`;
       },
-    });
-    revalidatePath("/reports");
-    revalidatePath("/dashboard");
+      ["/dashboard"],
+    );
   }
 
   async function updateReport(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.patientReport.update({
-      where: { reportId: Number(formData.get("reportId")) },
-      data: {
-        status: String(formData.get("status")),
-        resultSummary: String(formData.get("resultSummary")),
-        attachmentPath: String(formData.get("attachmentPath")),
+    await runFormAction(
+      "/reports",
+      async () => {
+        await requireSession("ADMIN");
+        const reportId = int(formData, "reportId", "Report ID");
+        await prisma.patientReport.update({
+          where: { reportId },
+          data: {
+            status: oneOf(formData, "status", "Status", REPORT_STATUSES),
+            resultSummary: optionalText(formData, "resultSummary", "Summary", 10_000),
+            attachmentPath: optionalText(formData, "attachmentPath", "Attachment path", 255),
+          },
+        });
+        return `Report #${reportId} updated.`;
       },
-    });
-    revalidatePath("/reports");
+      ["/dashboard"],
+    );
   }
 
   async function deleteReport(formData: FormData) {
     "use server";
-    await requireSession("ADMIN");
-    await prisma.patientReport.delete({ where: { reportId: Number(formData.get("reportId")) } });
-    revalidatePath("/reports");
-    revalidatePath("/dashboard");
+    await runFormAction(
+      "/reports",
+      async () => {
+        await requireSession("ADMIN");
+        const reportId = int(formData, "reportId", "Report ID");
+        await prisma.patientReport.delete({ where: { reportId } });
+        return `Report #${reportId} deleted.`;
+      },
+      ["/dashboard"],
+    );
   }
 
-  const [reports, pendingReports, criticalReports, reviewedReports] = await Promise.all([
+  const [reports, statusCounts, patientOptions] = await Promise.all([
     prisma.patientReport.findMany({
       where: patientId ? { patientId } : undefined,
-      include: { patient: true },
+      include: { patient: { select: { name: true } } },
       orderBy: [{ reportDate: "desc" }, { reportId: "desc" }],
+      take: LIST_LIMIT,
     }),
-    prisma.patientReport.count({ where: { status: "Pending" } }),
-    prisma.patientReport.count({ where: { status: "Critical" } }),
-    prisma.patientReport.count({ where: { status: "Reviewed" } }),
+    prisma.patientReport.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.patient.findMany({ select: { patientId: true, name: true }, orderBy: { patientId: "desc" }, take: 500 }),
   ]);
+  const countFor = (status: string) => statusCounts.find((c) => c.status === status)?._count._all ?? 0;
 
   return (
     <div className="space-y-5">
@@ -69,44 +91,34 @@ export default async function ReportsPage({
         title="Patient Test Reports"
         description="Store lab reports, track review status, and attach result summaries to patient history."
       />
+      <FlashMessage ok={params.ok} error={params.error} />
       <div className="grid gap-3 md:grid-cols-4">
         <StatCard label="Current View" value={reports.length} tone="blue" icon="reports" />
-        <StatCard label="Pending" value={pendingReports} tone="gold" icon="reports" />
-        <StatCard label="Critical" value={criticalReports} tone="coral" icon="reports" />
-        <StatCard label="Reviewed" value={reviewedReports} tone="green" icon="reports" />
+        <StatCard label="Pending" value={countFor("Pending")} tone="gold" icon="reports" />
+        <StatCard label="Critical" value={countFor("Critical")} tone="coral" icon="reports" />
+        <StatCard label="Reviewed" value={countFor("Reviewed")} tone="green" icon="reports" />
       </div>
 
       <SectionCard title="Save Report">
         <form action={addReport} className="grid gap-2 md:grid-cols-3">
-          <input name="patientId" required inputMode="numeric" placeholder="Patient ID" className="field" />
-          <input name="reportType" required placeholder="Report Type" className="field" />
-          <input name="reportName" required placeholder="Report Name" className="field" />
-          <input name="reportDate" required type="date" className="field" />
-          <select name="status" className="field">
-            <option>Pending</option>
-            <option>Received</option>
-            <option>Reviewed</option>
-            <option>Critical</option>
+          <PatientIdInput patients={patientOptions} />
+          <input name="reportType" required maxLength={50} placeholder="Report Type" className="field" />
+          <input name="reportName" required maxLength={150} placeholder="Report Name" className="field" />
+          <input name="reportDate" required type="date" className="field" aria-label="Report date" />
+          <select name="status" className="field" aria-label="Status">
+            {REPORT_STATUSES.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
           </select>
-          <input name="attachmentPath" placeholder="Attachment Path" className="field" />
-          <textarea
-            name="resultSummary"
-            placeholder="Summary"
-            className="field md:col-span-3"
-          />
+          <input name="attachmentPath" maxLength={255} placeholder="Attachment Path" className="field" />
+          <textarea name="resultSummary" placeholder="Summary" className="field md:col-span-3" />
           <button className="btn btn-primary md:col-span-3">Save</button>
         </form>
       </SectionCard>
 
       <SectionCard title="View Reports">
         <form method="get" className="mb-3 flex flex-wrap gap-2">
-          <input
-            name="patientId"
-            defaultValue={patientId || ""}
-            placeholder="Filter by patient ID"
-            inputMode="numeric"
-            className="field max-w-sm"
-          />
+          <input name="patientId" defaultValue={patientId || ""} placeholder="Filter by patient ID" inputMode="numeric" className="field max-w-sm" />
           <button className="btn btn-secondary">Filter</button>
         </form>
         {reports.length === 0 ? <EmptyState message="No reports found for this view." /> : null}
@@ -116,7 +128,7 @@ export default async function ReportsPage({
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <p className="font-bold text-[#19332c]">
                   <span className="text-[#0f8f72]">#{r.reportId}</span> {r.patient.name} / {r.reportType} / {r.reportName} (
-                  {r.reportDate.toISOString().slice(0, 10)})
+                  {formatDate(r.reportDate)})
                 </p>
                 <StatusPill
                   label={r.status}
@@ -125,23 +137,14 @@ export default async function ReportsPage({
               </div>
               <form action={updateReport} className="grid gap-2 md:grid-cols-3">
                 <input type="hidden" name="reportId" value={r.reportId} />
-                <select name="status" defaultValue={r.status} className="field text-sm">
-                  <option>Pending</option>
-                  <option>Received</option>
-                  <option>Reviewed</option>
-                  <option>Critical</option>
+                <select name="status" defaultValue={r.status} className="field text-sm" aria-label="Status">
+                  {REPORT_STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
                 </select>
-                <input
-                  name="attachmentPath"
-                  defaultValue={r.attachmentPath ?? ""}
-                  className="field text-sm"
-                />
+                <input name="attachmentPath" maxLength={255} defaultValue={r.attachmentPath ?? ""} className="field text-sm" aria-label="Attachment path" />
                 <button className="btn btn-warning btn-compact">Update</button>
-                <textarea
-                  name="resultSummary"
-                  defaultValue={r.resultSummary ?? ""}
-                  className="field text-sm md:col-span-3"
-                />
+                <textarea name="resultSummary" defaultValue={r.resultSummary ?? ""} className="field text-sm md:col-span-3" aria-label="Summary" />
               </form>
               <form action={deleteReport} className="mt-2">
                 <input type="hidden" name="reportId" value={r.reportId} />
@@ -150,6 +153,7 @@ export default async function ReportsPage({
             </div>
           ))}
         </div>
+        <ListLimitNote shown={reports.length} limit={LIST_LIMIT} />
       </SectionCard>
     </div>
   );

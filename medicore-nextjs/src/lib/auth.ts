@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+import { cache } from "react";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -7,16 +9,19 @@ import { prisma } from "@/lib/prisma";
 const SESSION_COOKIE = "medicore_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
+// Resolved lazily so `next build` can run without runtime secrets.
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
-  if (process.env.NODE_ENV === "production" && (!secret || secret === "change-me" || secret.length < 32)) {
-    throw new Error("JWT_SECRET must be set to a strong value in production.");
+  if (!secret || secret.length < 32 || secret.startsWith("change-me")) {
+    throw new Error("JWT_SECRET must be set to a random value of at least 32 characters (see .env.example).");
   }
-
-  return new TextEncoder().encode(secret || "change-me");
+  return new TextEncoder().encode(secret);
 }
 
-const JWT_SECRET = getJwtSecret();
+function secureCookieEnabled() {
+  const flag = process.env.COOKIE_SECURE;
+  return flag ? flag === "true" : process.env.NODE_ENV === "production";
+}
 export type AppRole = "ADMIN" | "USER";
 
 function normalizeRole(role: string | null | undefined): AppRole {
@@ -34,6 +39,13 @@ export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
 
+const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+/** Random one-time password for admin-created logins (shown once to the admin). */
+export function generatePassword(length = 12) {
+  return Array.from({ length }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join("");
+}
+
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
@@ -43,13 +55,13 @@ export async function createSession(payload: SessionPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookieEnabled(),
     maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/",
   });
@@ -60,18 +72,34 @@ export async function clearSession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
+/**
+ * Verifies the cookie and re-reads the user from the database (once per request),
+ * so deleted users and role changes take effect immediately instead of after 7 days.
+ */
+export const getSession = cache(async (): Promise<SessionPayload | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
+  // Outside the try: a missing secret is a config error, not an invalid session.
+  const secret = getJwtSecret();
+  let userId: number;
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as SessionPayload;
+    const { payload } = await jwtVerify(token, secret);
+    userId = Number(payload.userId);
   } catch {
     return null;
   }
-}
+  if (!Number.isInteger(userId)) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, role: true, patientId: true },
+  });
+  if (!user) return null;
+
+  return { userId: user.id, username: user.username, role: normalizeRole(user.role), patientId: user.patientId };
+});
 
 export async function requireSession(requiredRole?: AppRole) {
   const session = await getSession();

@@ -1,12 +1,12 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDate, formatMoney, todayDateOnly } from "@/lib/dates";
 import { InsightCard, PageHeader, QuickLink, SectionCard, StatusPill, StatCard, TimelineItem } from "@/components/ui";
 
 export default async function DashboardPage() {
   await requireSession("ADMIN");
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateOnly();
 
   const [patients, doctors, appointmentsToday, emergencyAppointments, unpaidBills, pendingReports, records, revenue, latestAppointments] = await Promise.all([
     prisma.patient.count(),
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     prisma.billing.aggregate({ _sum: { amount: true } }),
     prisma.appointment.findMany({
       take: 5,
-      include: { patient: true, doctor: true },
+      include: { patient: { select: { name: true } }, doctor: { select: { name: true, specialization: true } } },
       orderBy: [{ date: "desc" }, { appointmentId: "desc" }],
     }),
   ]);
@@ -36,7 +36,7 @@ export default async function DashboardPage() {
         <StatCard label="Doctors" value={doctors} tone="mint" icon="doctors" />
         <StatCard label="Today Appointments" value={appointmentsToday} tone="coral" icon="calendar" />
         <StatCard label="Medical Records" value={records} tone="ink" icon="records" />
-        <StatCard label="Revenue" value={`Rs. ${(revenue._sum.amount ?? 0).toFixed(2)}`} tone="gold" icon="revenue" />
+        <StatCard label="Revenue" value={formatMoney(revenue._sum.amount)} tone="gold" icon="revenue" />
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
         <InsightCard
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
               <TimelineItem
                 key={appointment.appointmentId}
                 title={`${appointment.patient.name} with ${appointment.doctor.name}`}
-                meta={appointment.date.toISOString().slice(0, 10)}
+                meta={formatDate(appointment.date)}
                 tone={appointment.status === "Emergency" ? "coral" : "green"}
               >
                 <div className="flex flex-wrap items-center gap-2">

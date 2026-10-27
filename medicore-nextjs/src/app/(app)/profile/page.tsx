@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDate, formatMoney } from "@/lib/dates";
 import { EmptyState, PageHeader, SectionCard, StatusPill, StatCard } from "@/components/ui";
 
 export default async function ProfilePage() {
@@ -57,7 +58,7 @@ export default async function ProfilePage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <span>
                   <span className="font-black text-[#0f8f72]">#{a.appointmentId}</span> {a.doctor.name} ({a.doctor.specialization}) on{" "}
-                  {a.date.toISOString().slice(0, 10)}
+                  {formatDate(a.date)}
                 </span>
                 <StatusPill
                   label={a.status ?? "Normal"}
@@ -89,7 +90,7 @@ export default async function ProfilePage() {
             <li key={b.billId} className="record-card">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <span>
-                  <span className="font-black text-[#0f8f72]">#{b.billId}</span> Rs. {b.amount.toFixed(2)} / {b.paymentMethod}
+                  <span className="font-black text-[#0f8f72]">#{b.billId}</span> {formatMoney(b.amount)} / {b.paymentMethod} / {formatDate(b.date)}
                 </span>
                 <StatusPill
                   label={b.paymentStatus}
@@ -108,7 +109,7 @@ export default async function ProfilePage() {
             <li key={r.reportId} className="record-card">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <span>
-                  <span className="font-black text-[#0f8f72]">#{r.reportId}</span> {r.reportType} / {r.reportName}
+                  <span className="font-black text-[#0f8f72]">#{r.reportId}</span> {r.reportType} / {r.reportName} ({formatDate(r.reportDate)})
                 </span>
                 <StatusPill
                   label={r.status}

@@ -17,3 +17,8 @@ Thumbs.db
 *.zip
 # Batch script temporary files
 sources.txt
+
+# Secrets (keep .env.example files)
+.env
+.env.*
+!.env.example
